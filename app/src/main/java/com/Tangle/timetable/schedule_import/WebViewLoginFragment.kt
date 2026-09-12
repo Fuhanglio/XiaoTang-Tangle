@@ -5,6 +5,7 @@ import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -39,6 +40,15 @@ class WebViewLoginFragment : BaseFragment() {
     private var tips = "1. 在上方输入教务网址，部分学校需要连接校园网\n2. 登录后点击到个人课表的页面，注意选择自己需要导入的学期\n3. 点击右下角的按钮完成导入\n4. 如果遇到总是提示密码错误或者网页错位等问题，可以取消底栏的「电脑模式」或者调节字体缩放"
     private var zoom = 100
     private var countClick = 0
+
+    // ====== 智能抓取状态 ======
+    // 背景：部分教务（如茅台学院新版正方）的课表页默认只渲染「当前周/简表」，
+    // 必须先点页面上的「更多」进入完整视图，抓到的数据才齐全。
+    // 因此点导入时先尝试展开，再抓源码；找不到入口则与旧版行为一致（直接抓）。
+    private var captureAfterLoad = false   // 等待页面加载完成后抓取（点击「更多」触发了跳转时）
+    private var captureDone = false        // 防止重复抓取
+    private var expandTried = false        // 本次导入是否已尝试过点「更多」（防止跳转后重复点击）
+    private var pageProgress = 0           // 当前页面加载进度（0~100）
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -115,6 +125,15 @@ class WebViewLoginFragment : BaseFragment() {
         wv_course.addJavascriptInterface(InJavaScriptLocalObj(), "local_obj")
         wv_course.webViewClient = object : WebViewClient() {
 
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // 智能抓取：点击「更多」或等待加载时，等新页面加载完再走「展开 + 抓取」
+                if (captureAfterLoad && !captureDone) {
+                    captureAfterLoad = false
+                    wv_course.postDelayed({ expandAndCapture() }, 1300L)
+                }
+            }
+
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 if (BuildConfig.CHANNEL != "google") {
                     handler.proceed() //接受所有网站的证书
@@ -136,6 +155,7 @@ class WebViewLoginFragment : BaseFragment() {
         wv_course.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 super.onProgressChanged(view, newProgress)
+                pageProgress = newProgress
                 if (newProgress == 100) {
                     pb_load.progress = newProgress
                     pb_load.visibility = View.GONE
@@ -352,7 +372,9 @@ class WebViewLoginFragment : BaseFragment() {
                     countClick = 0
                 }
             } else {
-                wv_course.loadUrl(js)
+                // 通用路径（含新版正方 TYPE_ZF_NEW，如茅台学院）：
+                // 先尝试展开「更多」进入完整课表，再抓源码；失败则退化为直接抓取。
+                smartImport()
             }
         }
 
@@ -361,6 +383,86 @@ class WebViewLoginFragment : BaseFragment() {
                 wv_course.goBack()
             }
         }
+    }
+
+    // ================== 智能抓取 ==================
+
+    /**
+     * 智能导入：先尝试点击页面上的「更多」等入口展开完整课表，再抓源码。
+     * 找不到入口 / 非课表页时，行为与旧版一致（直接抓当前页）。
+     */
+    private fun smartImport() {
+        captureDone = false
+        captureAfterLoad = false
+        expandTried = false
+        fab_import.isEnabled = false
+        Toasty.info(activity!!, "正在抓取页面源码…").show()
+
+        if (pageProgress < 100) {
+            // 页面还在加载中（例如用户刚点了「更多」或切换了学期）：
+            // 等这次加载完成后走「展开 + 抓取」，6 秒保险防卡死
+            captureAfterLoad = true
+            wv_course.postDelayed({ ensureCapture() }, 6000L)
+        } else {
+            expandAndCapture()
+        }
+    }
+
+    /** 尝试展开完整课表（点「更多」），随后抓取；已尝试过则直接抓。 */
+    private fun expandAndCapture() {
+        if (captureDone) return
+        if (expandTried) {
+            // 已经点过一次「更多」（当前页是展开后的结果）→ 直接抓，避免反复点造成死循环
+            captureHtml()
+            return
+        }
+        expandTried = true
+        wv_course.evaluateJavascript(JS_EXPAND_FULL_SCHEDULE) { result ->
+            Log.d("WebViewLogin", "expand-full-schedule result=$result")
+            if (result?.contains("xt:clicked") == true) {
+                // 已点击「更多」：可能同页展开（DOM 直接变），也可能触发页面跳转。
+                // a) 若跳转：onPageFinished 里再延迟调用 ensureCapture；
+                // b) 兜底：3.5 秒后仍未抓取，直接抓当前页面。
+                captureAfterLoad = true
+                wv_course.postDelayed({ ensureCapture() }, 3500L)
+                // 按钮复位保险：万一抓取链路异常，用户还能重试（正常成功时页面会自行关闭）
+                wv_course.postDelayed({
+                    try {
+                        if (isAdded) fab_import.isEnabled = true
+                    } catch (t: Throwable) {
+                    }
+                }, 12000L)
+            } else {
+                captureHtml()
+            }
+        }
+    }
+
+    /** 兜底抓取：只要还没抓过，就抓。 */
+    private fun ensureCapture() {
+        if (!captureDone) {
+            captureAfterLoad = false
+            captureHtml()
+        }
+    }
+
+    /** 抓取当前页面 DOM（含 iframe/frame），回调给本地桥 showSource。 */
+    private fun captureHtml() {
+        if (captureDone) return
+        captureDone = true
+        val js = "(function(){" +
+                "var out='';" +
+                "try{out+=document.getElementsByTagName('html')[0].innerHTML;}catch(e){}" +
+                "try{" +
+                "var ifrs=document.getElementsByTagName('iframe');" +
+                "for(var i=0;i<ifrs.length;i++){try{out+=ifrs[i].contentDocument.body.parentElement.outerHTML;}catch(e){}}" +
+                "var frs=document.getElementsByTagName('frame');" +
+                "for(var i=0;i<frs.length;i++){try{out+=frs[i].contentDocument.body.parentElement.outerHTML;}catch(e){}}" +
+                "}catch(e){}" +
+                "try{window.local_obj.showSource(out);}catch(e){}" +
+                "return ''+out.length;" +
+                "})()"
+        wv_course.evaluateJavascript(js, null)
     }
 
     private fun getHostUrl(): String {
@@ -394,7 +496,7 @@ class WebViewLoginFragment : BaseFragment() {
                 try {
                     val result = viewModel.importSchedule(html)
                     Toasty.success(activity!!,
-                            "成功导入 $result 门课程(ﾟ▽ﾟ)/\n请在右侧栏切换后查看").show()
+                            "成功导入 $result 门课程(ﾟ▽ﾟ)/\n请在右侧栏切换后查看\n（页面源码已存至 Download/wakeup_import_ok_*.html，数据不全时可发给开发者）").show()
                     activity!!.setResult(RESULT_OK)
                     activity!!.finish()
                 } catch (e: Exception) {
@@ -423,5 +525,43 @@ class WebViewLoginFragment : BaseFragment() {
                         putString("url", url)
                     }
                 }
+
+        /**
+         * 「展开完整课表」探测脚本。
+         *
+         * 在页面中寻找文本为「更多 / 更多» / 全部课表 …」的可见元素并点击。
+         * 仅当页面看起来是课表页（含 courseBox 或"星期/节"字样）时才动手，避免误点。
+         * 优先点 <a>/<button>、带 onclick、子元素少的节点（最接近真正按钮的那个）。
+         *
+         * 返回："xt:clicked" 已点击 / "xt:notfound" 无此入口 / "xt:notschedule" 非课表页 / "xt:err:..."
+         */
+        private const val JS_EXPAND_FULL_SCHEDULE = """(function(){
+  try {
+    var bodyText = document.body ? (document.body.innerText || document.body.textContent || '') : '';
+    var hasBox = document.querySelectorAll('div[class*=courseBox]').length > 0;
+    var looksLikeSchedule = hasBox || (bodyText.indexOf('星期') >= 0 && bodyText.indexOf('节') >= 0);
+    if (!looksLikeSchedule) { return 'xt:notschedule'; }
+    var norm = function(s){ return (s || '').replace(/\s+/g, ''); };
+    var targets = ['更多','更多»','更多>>','更多>','展开更多','更多选项','全部课表','完整课表'];
+    var nodes = document.querySelectorAll('a,button,span,div,li,i,p,label,strong,em');
+    var best = null, bestScore = -1;
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var t = norm(el.textContent);
+      if (!t || t.length > 6) continue;
+      if (targets.indexOf(t) < 0) continue;
+      if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+      var score = 0;
+      var tag = el.tagName;
+      if (tag === 'A' || tag === 'BUTTON') score += 4;
+      if (el.onclick) score += 2;
+      if (el.children.length === 0) score += 2;
+      score -= el.children.length;
+      if (score > bestScore) { bestScore = score; best = el; }
+    }
+    if (best) { best.click(); return 'xt:clicked'; }
+    return 'xt:notfound';
+  } catch (e) { return 'xt:err:' + e.message; }
+})()"""
     }
 }

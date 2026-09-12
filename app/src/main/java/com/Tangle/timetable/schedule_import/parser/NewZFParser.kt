@@ -1,8 +1,10 @@
 package com.Tangle.timetable.schedule_import.parser
 
+import android.content.ContentValues
 import android.content.Context
 import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import com.Tangle.timetable.schedule_import.bean.Course
 import org.jsoup.Jsoup
@@ -36,37 +38,66 @@ class NewZFParser(source: String) : Parser(source) {
         private const val TAG = "NewZFParser"
 
         /**
-         * 诊断兜底：当三种解析分支都返回空列表时，把原始 HTML 保存到公共 Download 目录。
-         * 在 Parser.saveCourse 抛出"导入数据为空"异常前调用。
-         * Android 10+ 分区存储下优先用 app-specific external dir，保证文件可写。
+         * 导入诊断：把抓取到的原始 HTML 存到公共 Download 目录，方便用户直接发给开发者排查。
+         *
+         * - Android 10+：走 MediaStore 写入公共 Download（无需任何权限，用户能在「文件管理 → 下载」里直接看到）
+         * - Android 9-：写 app-specific external dir（免权限）
+         *
+         * 文件开头附带一段诊断注释（解析出的课程数 / 课程列表 / 明细），
+         * 便于对照「页面里实际有什么」与「解析出了什么」，定位"导入不全"类问题。
+         *
+         * @param tag 文件名标记：ok / empty（便于区分成功与失败样本）
+         * @param note 诊断注释正文
+         * @return 用户可读的保存位置描述；失败返回 null
          */
         @JvmStatic
-        fun diagnoseAndDump(context: Context, html: String) {
-            try {
-                val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                val fileName = "wakeup_import_debug_$ts.html"
+        fun dumpHtml(context: Context, html: String, tag: String, note: String): String? {
+            return try {
+                val ts = SimpleDateFormat("MMdd_HHmmss", Locale.getDefault()).format(Date())
+                val fileName = "wakeup_import_${tag}_$ts.html"
+                val content = "<!-- ===== 小唐Tangle 导入诊断 =====\n" +
+                        "$note\n" +
+                        "抓取时间: $ts\n" +
+                        "HTML 长度: ${html.length}\n" +
+                        "================================== -->\n$html"
 
-                val targetDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    // Android 10+：app-specific external files/Download，不需要 WRITE_EXTERNAL_STORAGE 权限
-                    val d = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "")
-                    if (!d.exists()) d.mkdirs()
-                    d
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                        put(MediaStore.Downloads.MIME_TYPE, "text/html")
+                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    }
+                    val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    if (uri != null) {
+                        context.contentResolver.openOutputStream(uri)?.use {
+                            it.write(content.toByteArray(Charsets.UTF_8))
+                        }
+                        Log.w(TAG, "=== 导入诊断：已保存 Download/$fileName （${html.length} chars） ===")
+                        "Download/$fileName"
+                    } else {
+                        writeToAppDir(context, fileName, content)
+                    }
                 } else {
-                    val d = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "")
-                    if (!d.exists()) d.mkdirs()
-                    d
+                    writeToAppDir(context, fileName, content)
                 }
-
-                val target = File(targetDir, fileName)
-                target.writeText(html, Charsets.UTF_8)
-
-                val path = target.absolutePath
-                Log.w(TAG, "=== 导入诊断：HTML 已保存 ===")
-                Log.w(TAG, "路径: $path")
-                Log.w(TAG, "大小: ${html.length} chars (${target.length()} bytes)")
-                Log.w(TAG, "请把这个文件发给开发者")
             } catch (t: Throwable) {
                 Log.e(TAG, "诊断 dump 失败: ${t.message}")
+                null
+            }
+        }
+
+        /** 兜底：写入 app 私有外部目录，用户可在 Android/data/<包名>/files/Download 下找到。 */
+        private fun writeToAppDir(context: Context, fileName: String, content: String): String? {
+            return try {
+                val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "")
+                if (!dir.exists()) dir.mkdirs()
+                val f = File(dir, fileName)
+                f.writeText(content, Charsets.UTF_8)
+                Log.w(TAG, "=== 导入诊断：已保存 ${f.absolutePath} （${content.length} chars） ===")
+                f.absolutePath
+            } catch (t: Throwable) {
+                Log.e(TAG, "诊断 dump（私有目录）失败: ${t.message}")
+                null
             }
         }
     }

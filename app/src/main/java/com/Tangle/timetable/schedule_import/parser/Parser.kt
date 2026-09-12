@@ -46,10 +46,26 @@ abstract class Parser(val source: String) {
     suspend fun saveCourse(context: Context, tableId: Int, block: suspend (baseList: List<CourseBaseBean>,
                                                                            detailList: List<CourseDetailBean>) -> Unit): Int {
         convertCourse(context, tableId)
-        if (_baseList.isEmpty()) {
-            // 诊断兜底：把原始 HTML 保存到 Download 目录，方便用户发给开发者排查
-            NewZFParser.diagnoseAndDump(context, source)
-            throw Exception("导入数据为空>_<请确保选择正确的教务类型\n以及到达显示课程的页面\n（源码已保存到 Download/wakeup_import_debug_xxx.html，请把文件发给开发者协助排查）")
+        val isEmpty = _baseList.isEmpty()
+
+        // 新版正方（茅台学院等）解析链路：无论成败都留一份原始页面样本到 Download，
+        // 便于定位「导入不全」（页面里明明有课、却只解析出部分）这类问题。
+        var dumpPath: String? = null
+        if (this is NewZFParser && source.length > 300) {
+            val note = StringBuilder().apply {
+                append("解析结果: ").append(if (isEmpty) "为空（0 门）" else "${_baseList.size} 门课程")
+                append("\n--- 课程列表 ---\n")
+                _baseList.forEach { append("  [${it.id}] ${it.courseName}\n") }
+                append("--- 课程明细 ---\n")
+                _detailList.forEach {
+                    append("  课${it.id} 周${it.day} 第${it.startNode}节 连${it.step}节 ${it.startWeek}-${it.endWeek}周 单双${it.type} 教室=${it.room} 教师=${it.teacher}\n")
+                }
+            }.toString()
+            dumpPath = NewZFParser.dumpHtml(context, source, if (isEmpty) "empty" else "ok", note)
+        }
+
+        if (isEmpty) {
+            throw Exception("导入数据为空>_<请确保选择正确的教务类型\n以及到达显示课程的页面\n（源码已保存到 ${dumpPath ?: "Download/wakeup_import_*.html"}，请把文件发给开发者协助排查）")
         }
         block(_baseList, _detailList)
         return _baseList.size

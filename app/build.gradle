@@ -56,8 +56,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 119
-        versionName "3.650"
+        versionCode 120
+        versionName "3.651"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         packagingOptions {

@@ -4,7 +4,7 @@
 
 ### 这个版本改了什么
 
-**当前版本：v119 / 3.650**（2026-09-12）
+**当前版本：v120 / 3.651**（2026-09-12）
 
 | 方向 | 内容 |
 | --- | --- |
@@ -14,6 +14,7 @@
 | 贴心功能 | 生日提醒板块（今天课上完后出现在今日卡底部）、课程预告范围设置 |
 | 安装升级 | APK 固定签名，新版可直接覆盖安装，不必卸载、课表数据不会丢 |
 | 问题修复 | 修掉设置生日时误跳到「选择时间表」的问题（快捷指令被重复执行） |
+| 导入修复 | 茅台学院等新版教务「导入不全」：自动展开「更多」的完整课表视图后再抓取；每次导入留档原始页面便于排查 |
 
 完整的版本演进、每一版做了什么、踩过哪些坑，见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -21,7 +22,7 @@
 
 安装包放在 [Releases](https://github.com/Fuhanglio/XiaoTang-Tangle/releases) 里，每个版本一个 APK：
 
-- [**最新版（v119 / 3.650）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
+- [**最新版（v120 / 3.651）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
 - [全部历史版本](https://github.com/Fuhanglio/XiaoTang-Tangle/releases)
 
 安装前需在「设置 → 关于本机」里连点版本号开启开发者选项，并允许安装未知来源应用。若已装过旧版，直接覆盖安装即可，课表数据不会丢。
