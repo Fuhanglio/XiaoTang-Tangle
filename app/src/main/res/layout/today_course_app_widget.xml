@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="@drawable/widget_today_card_bg">
 
     <!-- header：左侧标题/副标，右侧操作图标 -->
@@ -72,7 +72,7 @@
         android:id="@+id/ll_course"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:orientation="vertical">
 
         <FrameLayout
@@ -84,14 +84,14 @@
             <ImageView
                 android:id="@+id/row_bg_0"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:scaleType="fitXY"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_row_capsule" />
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="10dp"
@@ -100,7 +100,7 @@
                 <ImageView
                     android:id="@+id/row_bar_0"
                     android:layout_width="3dp"
-                    android:layout_height="26dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_bar" />
@@ -182,20 +182,20 @@
             android:id="@+id/row_1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:visibility="gone">
 
             <ImageView
                 android:id="@+id/row_bg_1"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:scaleType="fitXY"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_row_capsule" />
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="10dp"
@@ -204,7 +204,7 @@
                 <ImageView
                     android:id="@+id/row_bar_1"
                     android:layout_width="3dp"
-                    android:layout_height="26dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_bar" />
@@ -286,20 +286,20 @@
             android:id="@+id/row_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:visibility="gone">
 
             <ImageView
                 android:id="@+id/row_bg_2"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:scaleType="fitXY"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_row_capsule" />
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="10dp"
@@ -308,7 +308,7 @@
                 <ImageView
                     android:id="@+id/row_bar_2"
                     android:layout_width="3dp"
-                    android:layout_height="26dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_bar" />
@@ -390,20 +390,20 @@
             android:id="@+id/row_3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:visibility="gone">
 
             <ImageView
                 android:id="@+id/row_bg_3"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:scaleType="fitXY"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_row_capsule" />
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="44dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="10dp"
@@ -412,7 +412,7 @@
                 <ImageView
                     android:id="@+id/row_bar_3"
                     android:layout_width="3dp"
-                    android:layout_height="26dp"
+                    android:layout_height="24dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_bar" />
@@ -496,7 +496,7 @@
         android:id="@+id/ll_grid"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -511,21 +511,21 @@
             <FrameLayout
                 android:id="@+id/gcell_0"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:visibility="gone">
 
                 <ImageView
                     android:id="@+id/gcell_bg_0"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -534,7 +534,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_0"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />
@@ -572,7 +572,7 @@
             <FrameLayout
                 android:id="@+id/gcell_1"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:visibility="gone">
@@ -580,14 +580,14 @@
                 <ImageView
                     android:id="@+id/gcell_bg_1"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -596,7 +596,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_1"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />
@@ -637,28 +637,28 @@
             android:id="@+id/grow_1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <FrameLayout
                 android:id="@+id/gcell_2"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:visibility="gone">
 
                 <ImageView
                     android:id="@+id/gcell_bg_2"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -667,7 +667,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_2"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />
@@ -705,7 +705,7 @@
             <FrameLayout
                 android:id="@+id/gcell_3"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:visibility="gone">
@@ -713,14 +713,14 @@
                 <ImageView
                     android:id="@+id/gcell_bg_3"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -729,7 +729,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_3"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />
@@ -770,28 +770,28 @@
             android:id="@+id/grow_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="4dp"
             android:orientation="horizontal"
             android:visibility="gone">
 
             <FrameLayout
                 android:id="@+id/gcell_4"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:visibility="gone">
 
                 <ImageView
                     android:id="@+id/gcell_bg_4"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -800,7 +800,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_4"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />
@@ -838,7 +838,7 @@
             <FrameLayout
                 android:id="@+id/gcell_5"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_weight="1"
                 android:layout_marginStart="6dp"
                 android:visibility="gone">
@@ -846,14 +846,14 @@
                 <ImageView
                     android:id="@+id/gcell_bg_5"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:scaleType="fitXY"
                     android:contentDescription="@null"
                     android:src="@drawable/widget_row_capsule" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:paddingStart="8dp"
@@ -862,7 +862,7 @@
                     <ImageView
                         android:id="@+id/gcell_bar_5"
                         android:layout_width="3dp"
-                        android:layout_height="22dp"
+                        android:layout_height="20dp"
                         android:scaleType="fitXY"
                         android:contentDescription="@null"
                         android:src="@drawable/widget_row_bar" />

@@ -231,19 +231,19 @@ object AppWidgetUtils {
         val titleColor = if (isDark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
         val subColor = 0xFF8E8E93.toInt()
 
-        // 本次显示几门课：按卡片实际高度算（标题区留 40dp，上下内边距共 24dp）
-        // 竖排：行高 50dp + 行距 6dp，最多 4 行；紧凑两列：行高 46dp + 行距 6dp，每行两格，最多 3 行
+        // 本次显示几门课：按卡片实际高度算。
+        // 竖屏下 OPTION_APPWIDGET_MIN_HEIGHT 就是卡片当前高度（官方语义），MAX_HEIGHT 是横屏时的值，
+        // 所以优先用 MIN_HEIGHT；有的桌面 resize 后不回传，才退回 MAX_HEIGHT，都没有就按三格估。
+        // 一行课程的实际消耗：上下内边距 20 + 标题区 36 + 列表上间距 4 + 行高 44 = 104，
+        // 之后每多一行加 48（行高 44 + 行距 4）；两种排列的行高与间距一致，共用同一个公式。
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        val cardHeightDp = when {
-            maxHeight > 0 -> maxHeight
-            minHeight > 0 -> minHeight
-            else -> 240
-        }
+        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        val reportedHeight = if (minHeight > 0) minHeight else maxHeight
+        val cardHeightDp = if (reportedHeight in 1..2000) reportedHeight else 240
         val compact = context.getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1
-        val maxRows = ((cardHeightDp - 24 - 40 + 6) / 56).coerceIn(1, 4)
-        val maxGridRows = ((cardHeightDp - 24 - 40 + 6) / 52).coerceIn(1, 3)
+        val maxRows = ((cardHeightDp - 56) / 48).coerceIn(1, 4)
+        val maxGridRows = ((cardHeightDp - 56) / 48).coerceIn(1, 3)
         val maxItems = if (compact) maxGridRows * 2 else maxRows
 
         val hideEnded = context.getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, false)
@@ -255,10 +255,26 @@ object AppWidgetUtils {
             hideEnded -> emptyList()
             else -> all
         }
+
+        // 生日板块：只在「不是手动翻看别的日子 + 已设置生日 + 今天已无未上的课 + 生日在 30 天内」时出现。
+        // 智能模式下「今天课全上完」会自动跳到明天，所以这里单独拿今天的课判断，不能只看 offset。
+        // 连间距约要 103dp，空间不够就让课程行逐行让位，连一行课程都保不住时干脆不显示板块。
+        val birthdayDays = if (!manual && BirthdayUtils.isSet(context)) BirthdayUtils.daysUntil(context) else -1
+        val todayPending = WidgetData.getCoursesForOffset(context, 0, tableBean)
+                .any { it.status != WidgetData.STATUS_FINISHED }
+        var showBirthday = birthdayDays in 0..30 && !todayPending
+        var itemLimit = maxItems
+        if (showBirthday) {
+            while (itemLimit > 1 && 104 + 48 * (itemLimit - 1) + 103 > cardHeightDp) {
+                itemLimit--
+            }
+            if (104 + 103 > cardHeightDp) showBirthday = false
+        }
+
         // 递补：showList 已经滤掉上完的课（除非当天全上完、且没开「隐藏已结束课程」），
         // 所以每节课结束的精确闹钟一响，卡片就会把下一门没上的课顶上来，
-        // 永远只显示「还没上的前 N 门」；N 由排列方式与卡片当前高度共同决定。
-        val rowItems = showList.take(maxItems)
+        // 永远只显示「还没上的前 N 门」；N 由排列方式、卡片当前高度与生日板块共同决定。
+        val rowItems = showList.take(itemLimit)
         val empty = rowItems.isEmpty()
         val titleCount = maxOf(unfinished.size, rowItems.size)
 
@@ -367,7 +383,7 @@ object AppWidgetUtils {
                     // 空格子用 INVISIBLE 而不是 GONE：保留半宽占位，
                     // 否则同一行左边那一格会被 weight 撑成整行宽
                     mRemoteViews.setViewVisibility(gridIds[i],
-                            if (i < maxItems) View.INVISIBLE else View.GONE)
+                            if (i < itemLimit) View.INVISIBLE else View.GONE)
                 }
             }
             // 整行都没课就把整行收起来，不留下多余的 6dp 行距
@@ -446,6 +462,32 @@ object AppWidgetUtils {
                     mRemoteViews.setViewVisibility(rowIds[i], View.GONE)
                 }
             }
+        }
+
+        // 生日板块：与课程行二选一之外的“底部预告”，只在生日临近且今天课上完时出现
+        if (showBirthday) {
+            mRemoteViews.setViewVisibility(R.id.ll_birthday, View.VISIBLE)
+            if (isDark) {
+                mRemoteViews.setInt(R.id.ll_birthday, "setBackgroundResource", R.drawable.widget_birthday_bg_dark)
+            }
+            val bMonth = BirthdayUtils.month(context)
+            val bDay = BirthdayUtils.day(context)
+            mRemoteViews.setTextViewText(R.id.tv_birthday_date, when (birthdayDays) {
+                0 -> "就在今天"
+                1 -> "明天 · ${bMonth}月${bDay}日"
+                else -> "${bMonth}月${bDay}日 · 还有${birthdayDays}天"
+            })
+            mRemoteViews.setTextColor(R.id.tv_birthday_title, nameColor)
+            mRemoteViews.setTextColor(R.id.tv_birthday_date, subColor)
+            mRemoteViews.setTextColor(R.id.tv_birthday_text, nameColor)
+            mRemoteViews.setTextViewText(R.id.tv_birthday_text,
+                    BirthdayUtils.text(context).ifBlank { "写一句给自己 / 给 TA 的话吧~" })
+            // 点板块直接进设置页改日期或寄语
+            val bPi = PendingIntent.getActivity(context, 6,
+                    Intent(context, BirthdayReminderActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT)
+            mRemoteViews.setOnClickPendingIntent(R.id.ll_birthday, bPi)
+        } else {
+            mRemoteViews.setViewVisibility(R.id.ll_birthday, View.GONE)
         }
 
         val intent = Intent(context, SplashActivity::class.java)
