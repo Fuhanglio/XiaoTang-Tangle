@@ -9,7 +9,21 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.View
 import splitties.dimensions.dp
+import kotlin.math.ceil
 
+/**
+ * 课表格子里的一块课程。
+ *
+ * 排版规则（长课名修复）：格子里的内容按重要性从高到低分成四段
+ *     课名  >  教室  >  开始时间  >  单双周
+ * 当格子高度放不下全部文字时：
+ *   1. 先保证"教室"这一行一定显示（它是最容易被长课名挤掉的信息）；
+ *   2. 课名按剩余高度做**限行 + 省略号**，而不是任其换行把后面的行顶出格子；
+ *   3. 只剩"课名 1 行 + 教室"都放不下的极端情况，才依次丢掉"开始时间"和"单双周"。
+ *
+ * 之所以由 View 自己排版而不是在拼字符串时截断：格子高度随"课程格子高度"设置、节次（step）、
+ * 文字大小三处变化，只有拿到实际宽高后才能算出到底能排几行。
+ */
 @SuppressLint("ViewConstructor")
 class TipTextView(context: Context) : View(context) {
 
@@ -19,8 +33,16 @@ class TipTextView(context: Context) : View(context) {
             invalidate()
         }
 
-    private var text = ""
-    private var mStaticLayout: StaticLayout? = null
+    // ===== 显示内容（init 时写入，布局在第一次绘制时按实际宽高构建）=====
+    private var courseName = ""
+    private var roomText = ""
+    private var weekText = ""
+    private var timeText = ""
+
+    private var headLayout: StaticLayout? = null
+    private var mainLayout: StaticLayout? = null
+    private var tailLayout: StaticLayout? = null
+
     private lateinit var mTextPaint: TextPaint
     private lateinit var mPaint: Paint
     private lateinit var bgPaint: Paint
@@ -28,6 +50,9 @@ class TipTextView(context: Context) : View(context) {
     private val path = Path()
     private val rect = RectF()
     private val dpUnit = dp(1)
+    private var baseTextAlpha = 255
+    private var baseBgAlpha = 255
+    private var baseStrokeAlpha = 255
     private var otherWeekTextAlpha = 255
     private var otherWeekBgAlpha = 255
     private var otherWeekStrokeAlpha = 255
@@ -41,8 +66,18 @@ class TipTextView(context: Context) : View(context) {
         return if (brightness > 0.6) 0xFF333333.toInt() else 0xFFFFFFFF.toInt()
     }
 
-    fun init(text: String, txtSize: Int, txtColor: Int, bgColor: Int, bgAlpha: Int, stroke: Int) {
-        this.text = text
+    /**
+     * @param courseName 课名（可多行，放不下时自动限行加省略号）
+     * @param room       教室（不含 @，空串表示没有）
+     * @param weekTip    单双周 / [非本周] 提示（空串表示没有）
+     * @param timeText   本节的开始时间（仅在课表开启"显示时间"时传入，否则给空串）
+     */
+    fun init(courseName: String, room: String, weekTip: String, timeText: String,
+             txtSize: Int, txtColor: Int, bgColor: Int, bgAlpha: Int, stroke: Int) {
+        this.courseName = courseName
+        this.roomText = room
+        this.weekText = weekTip
+        this.timeText = timeText
         mTextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = txtSize * dpUnit
             typeface = Typeface.DEFAULT_BOLD
@@ -71,9 +106,19 @@ class TipTextView(context: Context) : View(context) {
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
+        baseTextAlpha = mTextPaint.alpha
+        baseBgAlpha = bgPaint.alpha
+        baseStrokeAlpha = strokePaint.alpha
         otherWeekTextAlpha = (mTextPaint.alpha * 0.3).toInt()
         otherWeekBgAlpha = (bgPaint.alpha * 0.3).toInt()
         otherWeekStrokeAlpha = (strokePaint.alpha * 0.3).toInt()
+        clearLayouts()
+    }
+
+    private fun clearLayouts() {
+        headLayout = null
+        mainLayout = null
+        tailLayout = null
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -86,35 +131,94 @@ class TipTextView(context: Context) : View(context) {
         setMeasuredDimension(width, height)
     }
 
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        if (tipVisibility == TIP_OTHER_WEEK) {
-            mTextPaint.alpha = otherWeekTextAlpha
-            mPaint.alpha = otherWeekTextAlpha
-            strokePaint.alpha = otherWeekStrokeAlpha
-            bgPaint.alpha = otherWeekBgAlpha
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // 格子尺寸变了（改设置、转屏、切横竖排）要按新宽高重排
+        if (w != oldw || h != oldh) clearLayouts()
+    }
+
+    private fun makeLayout(text: String, w: Int): StaticLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        StaticLayout
+                .Builder
+                .obtain(text, 0, text.length, mTextPaint, w)
+                .setIncludePad(false)
+                .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                .build()
+    } else {
+        StaticLayout(text, mTextPaint, w, Layout.Alignment.ALIGN_CENTER, 1.0f, 0f, false)
+    }
+
+    /**
+     * 把 [text] 压进 [maxLines] 行以内：超出的部分截掉并补一个省略号。
+     * 直接用 StaticLayout 逐次回退试排，是因为 API 21 没有 setMaxLines/setEllipsize，
+     * 而且中英文混排下"按字符数估算"根本不靠谱。
+     */
+    private fun makeEllipsizedLayout(text: String, maxLines: Int, w: Int): StaticLayout {
+        val full = makeLayout(text, w)
+        if (full.lineCount <= maxLines) return full
+        var keep = (full.getLineEnd(maxLines - 1) - 1).coerceAtLeast(1)
+        while (keep > 1) {
+            val layout = makeLayout(text.substring(0, keep) + "…", w)
+            if (layout.lineCount <= maxLines) return layout
+            keep--
         }
-        if (mStaticLayout == null) {
-            val centerX = width - paddingRight - paddingLeft
-            mStaticLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                StaticLayout
-                        .Builder
-                        .obtain(text, 0, text.length, mTextPaint, centerX)
-                        .setIncludePad(false)
-                        .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                        .build()
+        return makeLayout("…", w)
+    }
+
+    /** 按当前宽高算出四段内容各自能排几行，并构建好布局 */
+    private fun ensureLayouts() {
+        if (mainLayout != null) return
+        if (!::mTextPaint.isInitialized) return
+        val contentW = (width - paddingLeft - paddingRight).coerceAtLeast(1)
+        val availH = (height - paddingTop - paddingBottom).coerceAtLeast(1)
+        // 单行高度（往上取整，宁可少算一行也别让最后一行被裁掉）
+        val lineH = ceil((mTextPaint.descent() - mTextPaint.ascent()).toDouble()).toInt().coerceAtLeast(1)
+        val availLines = (availH / lineH).coerceAtLeast(1)
+
+        var showTime = timeText.isNotEmpty()
+        var showWeek = weekText.isNotEmpty()
+        val showRoom = roomText.isNotEmpty()
+
+        // 非课名的固定行各占一行，超容量时按 单双周 -> 开始时间 的顺序丢弃
+        var fixedLines = (if (showTime) 1 else 0) + (if (showRoom) 1 else 0) + (if (showWeek) 1 else 0)
+        while (fixedLines + 1 > availLines) {
+            if (showWeek) {
+                showWeek = false
+                fixedLines--
+            } else if (showTime) {
+                showTime = false
+                fixedLines--
             } else {
-                StaticLayout(
-                        text,
-                        mTextPaint,
-                        centerX,
-                        Layout.Alignment.ALIGN_CENTER,
-                        1.0f,
-                        0f,
-                        false
-                )
+                // 连"课名 1 行 + 教室"都放不下：格子物理高度不够，只能让尾部溢出后被裁
+                break
             }
         }
+
+        val mainLines = (availLines - fixedLines).coerceAtLeast(1)
+        headLayout = if (showTime) makeLayout(timeText, contentW) else null
+        mainLayout = makeEllipsizedLayout(courseName, mainLines, contentW)
+        val tail = buildString {
+            if (showRoom) append("@").append(roomText)
+            if (showWeek) {
+                if (isNotEmpty()) append("\n")
+                append(weekText)
+            }
+        }
+        tailLayout = if (tail.isEmpty()) null else makeLayout(tail, contentW)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (!::mTextPaint.isInitialized) return
+        // [非本周]的浅色提示块整体降透明度；每次都显式赋值，避免状态切换后残留
+        val otherWeek = tipVisibility == TIP_OTHER_WEEK
+        mTextPaint.alpha = if (otherWeek) otherWeekTextAlpha else baseTextAlpha
+        mPaint.alpha = if (otherWeek) otherWeekTextAlpha else baseTextAlpha
+        strokePaint.alpha = if (otherWeek) otherWeekStrokeAlpha else baseStrokeAlpha
+        bgPaint.alpha = if (otherWeek) otherWeekBgAlpha else baseBgAlpha
+
+        ensureLayouts()
+
         // 圆角从 4dp 升级到 14dp（可爱卡片风格）
         val radius = 14 * dpUnit
         canvas.drawRoundRect(rect, radius, radius, bgPaint)
@@ -122,7 +226,16 @@ class TipTextView(context: Context) : View(context) {
         canvas.clipRect(rect)
         canvas.save()
         canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
-        mStaticLayout!!.draw(canvas)
+        // 四段内容自上而下顺次叠加，每画完一段把画布原点下移该段高度
+        headLayout?.let {
+            it.draw(canvas)
+            canvas.translate(0f, it.height.toFloat())
+        }
+        mainLayout?.let {
+            it.draw(canvas)
+            canvas.translate(0f, it.height.toFloat())
+        }
+        tailLayout?.let { it.draw(canvas) }
         canvas.restore()
         if (tipVisibility == 1) {
             path.moveTo(width - 12 * dpUnit, height - 6 * dpUnit)

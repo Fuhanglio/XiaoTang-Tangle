@@ -213,7 +213,6 @@ class ScheduleFragment : BaseFragment() {
 
             var isError = false
 
-            val strBuilder = StringBuilder()
             if (c.step <= 0) {
                 c.step = 1
                 isError = true
@@ -247,24 +246,8 @@ class ScheduleFragment : BaseFragment() {
                 c.color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(activity!!, c.id % 9))}"
             }
 
-            strBuilder.append(c.courseName)
-
-            if (c.room != "") {
-                strBuilder.append("\n@${c.room}")
-            }
-
             if (isOtherWeek) {
-                when (c.type) {
-                    1 -> strBuilder.append("\n单周")
-                    2 -> strBuilder.append("\n双周")
-                }
-                strBuilder.append("[非本周]")
                 textView.visibility = View.VISIBLE
-            } else {
-                when (c.type) {
-                    1 -> strBuilder.append("\n单周")
-                    2 -> strBuilder.append("\n双周")
-                }
             }
 
             if (isCovered) {
@@ -299,12 +282,26 @@ class ScheduleFragment : BaseFragment() {
                 textView.tipVisibility = TipTextView.TIP_OTHER_WEEK
             }
 
-            if (table.showTime && viewModel.timeList.isNotEmpty()) {
-                strBuilder.insert(0, viewModel.timeList[c.startNode - 1].startTime + "\n")
+            // 课名 / 教室 / 开始时间 / 单双周 四段分开交给 TipTextView 自行排版：
+            // 格子放不下时它会给课名限行加省略号，并保证"@教室"那一行优先显示，
+            // 不会再出现"课名太长把教室名顶出格子"的情况（详见 TipTextView 注释）。
+            val weekTip = buildString {
+                when (c.type) {
+                    1 -> append("单周")
+                    2 -> append("双周")
+                }
+                if (isOtherWeek) append("[非本周]")
             }
-
+            val startTime = if (table.showTime && viewModel.timeList.isNotEmpty()) {
+                viewModel.timeList[c.startNode - 1].startTime
+            } else {
+                ""
+            }
             textView.init(
-                    text = strBuilder.toString(),
+                    courseName = c.courseName,
+                    room = c.room ?: "",
+                    weekTip = weekTip,
+                    timeText = startTime,
                     txtSize = table.itemTextSize,
                     txtColor = table.courseTextColor,
                     bgColor = Color.parseColor(c.color),
