@@ -110,6 +110,22 @@ v104 把卡片改成静态行，但每一行的内容仍然是先用代码绘制
 - 新增文件：`CourseDragController.kt`、`drawable/course_drag_highlight.xml`；`ScheduleFragment.kt` 增加长按回调与 `onCourseMoved`；`CourseDao.kt` 增加 `moveCourseDetails` 事务方法。
 - 只支持移动位置，不支持拉长 / 缩短课程时长。
 
+## v114 / 3.645 · 课表同步到系统日历
+
+起因是想在 ColorOS 的负一屏（速览）上看到今天的课。
+
+桌面小部件和负一屏是**两套完全独立的体系**：桌面走标准 Android `AppWidget`，负一屏走 OPPO 自研的速览卡片（`CardWidget`），后者需要 OPPO 开放平台的开发者认证与商务审批，短期接不上。
+
+于是先做一条立刻能用的路：把整学期课表写进系统日历。负一屏和桌面上都有「日历」类卡片，它们读的是系统日历数据，写完就能显示。
+
+- 入口：课表页 → 导出 → **「同步到系统日历」**。
+- 首次同步会申请日历读写权限，然后让你挑一个可写的日历（只有一个时不弹框，直接写）。选择会记住，下次不用再挑。
+- 课程转成**每周循环的日程**：连续周用 `FREQ=WEEKLY;COUNT=n`，单双周用 `FREQ=WEEKLY;INTERVAL=2;COUNT=n`。一门课通常只占 1 条日程，不会把日历塞满。
+- 每节课提前 15 分钟提醒。
+- **可反复同步**：每条日程的备注第一行带 `[小唐Tangle#课表id]` 标记，同步前先按标记把上一次写进去的整批删掉，所以改完课表再点一次就行，不会堆重复，也不会误删别的课表的日程。
+- 新增文件：`CalendarSyncUtils.kt`；`ExportSettingsFragment.kt` 与 `fragment_export_settings.xml` 加入口；manifest 加 `READ_CALENDAR` / `WRITE_CALENDAR`。
+- 权限申请的 `requestCode` 为 `Const.REQUEST_CODE_CALENDAR_PERMISSION`（109）。
+
 ---
 
 ## 技术备忘（踩过的坑）
@@ -137,6 +153,16 @@ v104 把卡片改成静态行，但每一行的内容仍然是先用代码绘制
 
 9. 拖拽用 `View.startDrag`（API 11+）而不是 `startDragAndDrop`（API 24+），以保住 minSdk 21。
 
+10. **循环日程必须给 `DURATION`，不能给 `DTEND`。** CalendarContract 规定循环事件（带 `RRULE`）里的 `DTEND` 会被忽略，要用 `DURATION`，格式为 RFC2445 的时长写法（如 `PT1H30M`，注意 `T` 不能省）。只有「只上一次」的单次日程才走 `DTEND`。
+
+11. **算「哪几周要上课」不能直接用 `startWeek..endWeek` 配固定步长。** 单双周课程的奇偶性与 `startWeek` 不一定对齐，直接按 2 步长循环会整体错位。正确做法是先用 `CourseBean.inWeek(w)` 把真实要上课的周次过滤出来，再从结果列表推导步长与次数。
+
+12. **反复同步不能靠「记得先删」。** 把标记写进日程的 `DESCRIPTION`（这里是 `[小唐Tangle#课表id]`），同步前用 `DESCRIPTION LIKE '[标记]%'` 整批删掉。标记里带上课表 id，多张课表就互不干扰。
+
+13. **DialogFragment 里要先弹结果再 `dismiss()`。** Fragment 一旦 dismiss，`lifecycleScope` 上的协程会被取消，后面的代码就不执行了。要保证结果对话框在 dismiss 之前弹出来，或者干脆用 Activity 做 context 弹（Activity 级对话框不受 Fragment 生命周期影响）。
+
+14. **Fragment 里申请运行时权限要用 `requestPermissions()` 并重写 Fragment 的 `onRequestPermissionsResult`。** 如果图省事写成 `ActivityCompat.requestPermissions(activity, ...)`，回调只会送到 Activity，Fragment 收不到，整个流程就断在那里。
+
 ---
 
 ## 已知限制 / 待验证
@@ -144,6 +170,8 @@ v104 把卡片改成静态行，但每一行的内容仍然是先用代码绘制
 - **拖拽手感未在真机验证过。** 逻辑与编译结果已核验，但长按阈值、滑动判定这些手感参数需要真机上手调。
 - 拖拽只支持移动，不支持改变课程时长（拉长 / 缩短）。
 - 生日提醒依赖手动设置，暂未接入通讯录。
+- **负一屏能不能读到系统日历，需要真机确认。** ColorOS 的速览卡片列表里是否提供「日历 / 日程」类卡片、它读不读系统日历，这两点无法在编译期验证。若没有这张卡片，系统日历 App 和日历桌面小部件仍然可用；要拿到真正的负一屏卡片，还是得走 OPPO 开放平台的卡片审批。
+- 日历同步是手动的：改完课表要再点一次「同步到系统日历」。暂未做自动监听与自动重同步。
 
 ---
 

@@ -18,6 +18,9 @@ object Const {
     const val REQUEST_CODE_CHOOSE_SCHOOL = 107
     const val REQUEST_CODE_ADD_COURSE = 108
 
+    /** 申请日历读写权限（同步课表到系统日历用） */
+    const val REQUEST_CODE_CALENDAR_PERMISSION = 109
+
     const val KEY_OLD_VERSION_COURSE = "course"
     const val KEY_OLD_VERSION_BG_URI = "pic_uri"
     const val KEY_OLD_VERSION_TERM_START = "termStart"
@@ -55,5 +58,8 @@ object Const {
     const val KEY_HIDE_ENDED_COURSE = "hide_ended_course"
     const val KEY_PERMISSION_GUIDE_SHOWN = "permission_guide_shown"
     const val KEY_WIDGET_CACHE = "widget_today_cache"
+
+    /** 上一次「同步到系统日历」选中的日历 id，-1 表示还没选过 */
+    const val KEY_SYNC_CALENDAR_ID = "sync_calendar_id"
 
 }

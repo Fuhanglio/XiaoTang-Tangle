@@ -1,15 +1,26 @@
 package com.Tangle.timetable.schedule
 
+import android.Manifest
+import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.CalendarContract
 import android.view.View
+import androidx.core.content.edit
 import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.activityViewModels
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.Tangle.timetable.R
+import com.Tangle.timetable.utils.CalendarSyncUtils
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.Utils
+import com.Tangle.timetable.utils.getPrefer
 import es.dmoral.toasty.Toasty
 import kotlinx.android.synthetic.main.fragment_export_settings.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ExportSettingsFragment : BaseDialogFragment() {
 
@@ -57,8 +68,120 @@ class ExportSettingsFragment : BaseDialogFragment() {
             dismiss()
         }
 
+        tv_sync_calendar.setOnClickListener {
+            val act = activity ?: return@setOnClickListener
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !CalendarSyncUtils.hasPermission(act)) {
+                requestPermissions(
+                        arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR),
+                        Const.REQUEST_CODE_CALENDAR_PERMISSION
+                )
+            } else {
+                startSync()
+            }
+        }
+
         tv_cancel.setOnClickListener {
             dismiss()
         }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>,
+                                            grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != Const.REQUEST_CODE_CALENDAR_PERMISSION) return
+        val act = activity ?: return
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            startSync()
+        } else {
+            Toasty.error(act, "没给日历权限，就写不进去啦", Toasty.LENGTH_LONG).show()
+        }
+    }
+
+    /** 先找出往哪个日历写，只有一个就直接写，多个就弹出来让主人挑 */
+    private fun startSync() {
+        val act = activity ?: return
+        launch {
+            val calendars = try {
+                withContext(Dispatchers.IO) {
+                    CalendarSyncUtils.queryWritableCalendars(act.contentResolver)
+                }
+            } catch (e: Exception) {
+                Toasty.error(act, "读日历列表失败：${e.message}", Toasty.LENGTH_LONG).show()
+                return@launch
+            }
+            if (calendars.isEmpty()) {
+                Toasty.error(act, "手机里没有找到可以写入的日历", Toasty.LENGTH_LONG).show()
+                return@launch
+            }
+            val saved = act.getPrefer().getLong(Const.KEY_SYNC_CALENDAR_ID, -1L)
+            val remembered = calendars.firstOrNull { it.id == saved }
+            when {
+                remembered != null -> doSync(act, remembered)
+                calendars.size == 1 -> doSync(act, calendars[0])
+                else -> showCalendarPicker(act, calendars)
+            }
+        }
+    }
+
+    private fun showCalendarPicker(act: Activity, calendars: List<CalendarSyncUtils.SyncCalendar>) {
+        val labels = calendars.map { it.displayName }.toTypedArray()
+        MaterialAlertDialogBuilder(act)
+                .setTitle("写进哪个日历？")
+                .setItems(labels) { _, which ->
+                    doSync(act, calendars[which])
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+    }
+
+    private fun doSync(act: Activity, target: CalendarSyncUtils.SyncCalendar) {
+        launch {
+            val courseCount = viewModel.allCourseList.sumBy { it.value?.size ?: 0 }
+            if (courseCount == 0) {
+                Toasty.info(act, "这张课表还没有课程呢", Toasty.LENGTH_LONG).show()
+                return@launch
+            }
+            val written = try {
+                val courses = viewModel.allCourseList.flatMap { it.value ?: emptyList() }
+                withContext(Dispatchers.IO) {
+                    CalendarSyncUtils.syncTable(
+                            act, viewModel.table, viewModel.timeList, courses, target.id)
+                }
+            } catch (e: Exception) {
+                Toasty.error(act, "同步失败：${e.message}", Toasty.LENGTH_LONG).show()
+                return@launch
+            }
+            act.getPrefer().edit { putLong(Const.KEY_SYNC_CALENDAR_ID, target.id) }
+            showFinishDialog(act, written, target)
+            dismiss()
+        }
+    }
+
+    private fun showFinishDialog(act: Activity, count: Int, target: CalendarSyncUtils.SyncCalendar) {
+        MaterialAlertDialogBuilder(act)
+                .setTitle("同步好啦")
+                .setMessage("已经把「$tableName」的 $count 条日程写进「${target.displayName}」。\n\n" +
+                        "打开系统日历就能看到，负一屏或桌面的「日历」卡片也读得到。\n" +
+                        "每节课会提前 15 分钟提醒。\n" +
+                        "以后改完课表再点一次这里就行，会自动覆盖上一次，不会重复。")
+                .setNegativeButton("知道了", null)
+                .setPositiveButton("打开日历") { _, _ -> openCalendar(act) }
+                .setCancelable(false)
+                .show()
+    }
+
+    private fun openCalendar(act: Activity) {
+        val candidates = listOf(
+                Intent(Intent.ACTION_VIEW).setData(CalendarContract.CONTENT_URI),
+                Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_CALENDAR)
+        )
+        candidates.forEach {
+            try {
+                act.startActivity(it)
+                return
+            } catch (ignored: Exception) {
+            }
+        }
+        Toasty.info(act, "没能打开日历，自己在手机里找找日历 App 吧").show()
     }
 }
