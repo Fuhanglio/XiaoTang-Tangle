@@ -19,3 +19,6 @@ app/release/
 *.ap_
 *.dex
 *.hprof
+
+# 签名密钥不进公开仓库（含私钥，且这是保证已装应用能覆盖升级的关键文件）
+/keystore/

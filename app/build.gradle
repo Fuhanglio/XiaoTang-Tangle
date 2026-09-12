@@ -13,6 +13,19 @@ configurations {
     compile.exclude group: 'commons-logging'
 }
 
+// 项目内固定的调试签名密钥。
+//
+// 为什么要有这个：Android 只允许**同包名 + 同签名 + versionCode 不降级**的 APK 覆盖安装。
+// 默认调试签名取自 %USERPROFILE%\.android\debug.keystore，那个文件一旦被清理工具删掉、
+// 或者换了机器/重装了系统，就会重新生成一份**不同的证书**，编出来的包和手机上已装的包签名
+// 对不上，安装时只能先卸载——卸载会清掉全部课表数据。
+//
+// 把密钥随项目保存（放 keystore/ 目录，已在 .gitignore 里，不会提交到公开仓库），
+// 每次编译都从同一份证书签，就能一直覆盖安装、数据不丢。
+// 该文件不存在时（例如从 GitHub clone 下来但没有这个密钥）自动退回系统默认调试签名，
+// 编译不会失败，只是签出来的包和已有安装对不上而已。
+def fixedDebugKeyStore = rootProject.file('keystore/xiaotang.jks')
+
 android {
     androidExtensions {
         experimental = true
@@ -23,6 +36,14 @@ android {
             keyPassword '11166511'
             storeFile file('/Volumes/Document/yzune.jks')
             storePassword '11166511'
+        }
+        if (fixedDebugKeyStore.exists()) {
+            xiaotang {
+                storeFile fixedDebugKeyStore
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
         }
     }
     compileSdkVersion 29
@@ -35,8 +56,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 117
-        versionName "3.648"
+        versionCode 118
+        versionName "3.649"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         packagingOptions {
@@ -69,6 +90,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // 用项目内固定的密钥签名，保证每次编出来的包都能覆盖安装到已装版本上
+            if (fixedDebugKeyStore.exists()) {
+                signingConfig signingConfigs.xiaotang
+            }
+        }
         release {
             minifyEnabled true
             shrinkResources true

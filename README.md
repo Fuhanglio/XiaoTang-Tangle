@@ -4,7 +4,7 @@
 
 ### 这个版本改了什么
 
-**当前版本：v117 / 3.648**（2026-09-12）
+**当前版本：v118 / 3.649**（2026-09-12）
 
 | 方向 | 内容 |
 | --- | --- |
@@ -12,6 +12,7 @@
 | 刷新机制 | 修掉「小卡片更新不了课表」的根因，刷新不再依赖数据库登记，改按系统 `appWidgetIds` 走 |
 | 交互增强 | 课表网格内长按拖拽移动课程（可撤销）、周课表卡右上角加课入口、同名课程颜色自动对齐 |
 | 贴心功能 | 生日提醒板块（今天课上完后出现在今日卡底部）、课程预告范围设置 |
+| 安装升级 | APK 固定签名，新版可直接覆盖安装，不必卸载、课表数据不会丢 |
 
 完整的版本演进、每一版做了什么、踩过哪些坑，见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -19,7 +20,7 @@
 
 安装包放在 [Releases](https://github.com/Fuhanglio/XiaoTang-Tangle/releases) 里，每个版本一个 APK：
 
-- [**最新版（v117 / 3.648）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
+- [**最新版（v118 / 3.649）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
 - [全部历史版本](https://github.com/Fuhanglio/XiaoTang-Tangle/releases)
 
 安装前需在「设置 → 关于本机」里连点版本号开启开发者选项，并允许安装未知来源应用。若已装过旧版，直接覆盖安装即可，课表数据不会丢。
