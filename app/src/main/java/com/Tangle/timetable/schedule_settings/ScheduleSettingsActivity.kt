@@ -145,23 +145,35 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
         viewModel.mYear = Integer.parseInt(viewModel.termStartList[0])
         viewModel.mMonth = Integer.parseInt(viewModel.termStartList[1])
         viewModel.mDay = Integer.parseInt(viewModel.termStartList[2])
+        // 「快捷入口」：从课表页的按钮进来时，自动滚到并展开对应的设置项。
+        // ⚠️ 下面两个保护缺一不可（v119 修）：
+        //   1) 立刻把 extra 消费掉。Activity 一旦被系统回收，重建时 intent 里原有的 extra
+        //      依然保留，不消费就会在「从子页面（比如生日提醒）返回」时又自动跳一次，
+        //      表现出来就是「明明在设置生日，却莫名其妙跳到了选择时间表」。
+        //   2) 只在全新创建时执行（savedInstanceState == null）。重建属于恢复现场，不该再触发跳转。
         val settingItem = intent?.extras?.getString("settingItem")
         if (settingItem != null) {
-            mRecyclerView.postDelayed({
-                try {
-                    val i = showItems.indexOfFirst {
-                        it.title == settingItem
-                    }
-                    (mRecyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(i, dip(64))
-                    when (showItems[i]) {
-                        is HorizontalItem -> onHorizontalItemClick(showItems[i] as HorizontalItem, i)
-                        is VerticalItem -> onVerticalItemClick(showItems[i] as VerticalItem)
-                        is SeekBarItem -> onSeekBarItemClick(showItems[i] as SeekBarItem, i)
-                    }
-                } catch (e: Exception) {
+            intent.removeExtra("settingItem")
+            if (savedInstanceState == null) {
+                mRecyclerView.postDelayed({
+                    try {
+                        val i = showItems.indexOfFirst {
+                            it.title == settingItem
+                        }
+                        if (i >= 0) {
+                            (mRecyclerView.layoutManager as? LinearLayoutManager)
+                                    ?.scrollToPositionWithOffset(i, dip(64))
+                            when (showItems[i]) {
+                                is HorizontalItem -> onHorizontalItemClick(showItems[i] as HorizontalItem, i)
+                                is VerticalItem -> onVerticalItemClick(showItems[i] as VerticalItem)
+                                is SeekBarItem -> onSeekBarItemClick(showItems[i] as SeekBarItem, i)
+                            }
+                        }
+                    } catch (e: Exception) {
 
-                }
-            }, 100)
+                    }
+                }, 100)
+            }
         }
     }
 
