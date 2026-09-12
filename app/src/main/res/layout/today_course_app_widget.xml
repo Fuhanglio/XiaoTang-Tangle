@@ -67,6 +67,7 @@
             android:visibility="gone" />
     </LinearLayout>
 
+    <!-- ============ 排列一：竖排列表（一行一门课，右侧显示上课时间） ============ -->
     <LinearLayout
         android:id="@+id/ll_course"
         android:layout_width="match_parent"
@@ -132,20 +133,48 @@
                         android:textColor="#8E8E93" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/row_badge_0"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="正在上"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:paddingStart="6dp"
-                    android:paddingEnd="6dp"
-                    android:paddingTop="2dp"
-                    android:paddingBottom="2dp"
-                    android:background="@drawable/widget_badge_bg"
-                    android:visibility="gone" />
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical"
+                    android:gravity="end">
+
+                    <TextView
+                        android:id="@+id/row_time_0"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#1C1C1E" />
+
+                    <TextView
+                        android:id="@+id/row_end_0"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:maxLines="1"
+                        android:textSize="11sp"
+                        android:textColor="#8E8E93" />
+
+                    <TextView
+                        android:id="@+id/row_badge_0"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:text="正在上"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:background="@drawable/widget_badge_bg"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
         </FrameLayout>
 
@@ -208,20 +237,48 @@
                         android:textColor="#8E8E93" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/row_badge_1"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="正在上"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:paddingStart="6dp"
-                    android:paddingEnd="6dp"
-                    android:paddingTop="2dp"
-                    android:paddingBottom="2dp"
-                    android:background="@drawable/widget_badge_bg"
-                    android:visibility="gone" />
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical"
+                    android:gravity="end">
+
+                    <TextView
+                        android:id="@+id/row_time_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#1C1C1E" />
+
+                    <TextView
+                        android:id="@+id/row_end_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:maxLines="1"
+                        android:textSize="11sp"
+                        android:textColor="#8E8E93" />
+
+                    <TextView
+                        android:id="@+id/row_badge_1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:text="正在上"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:background="@drawable/widget_badge_bg"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
         </FrameLayout>
 
@@ -284,20 +341,48 @@
                         android:textColor="#8E8E93" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/row_badge_2"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="正在上"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:paddingStart="6dp"
-                    android:paddingEnd="6dp"
-                    android:paddingTop="2dp"
-                    android:paddingBottom="2dp"
-                    android:background="@drawable/widget_badge_bg"
-                    android:visibility="gone" />
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical"
+                    android:gravity="end">
+
+                    <TextView
+                        android:id="@+id/row_time_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#1C1C1E" />
+
+                    <TextView
+                        android:id="@+id/row_end_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:maxLines="1"
+                        android:textSize="11sp"
+                        android:textColor="#8E8E93" />
+
+                    <TextView
+                        android:id="@+id/row_badge_2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:text="正在上"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:background="@drawable/widget_badge_bg"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
         </FrameLayout>
 
@@ -360,22 +445,458 @@
                         android:textColor="#8E8E93" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/row_badge_3"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="正在上"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:paddingStart="6dp"
-                    android:paddingEnd="6dp"
-                    android:paddingTop="2dp"
-                    android:paddingBottom="2dp"
-                    android:background="@drawable/widget_badge_bg"
-                    android:visibility="gone" />
+                    android:layout_marginStart="8dp"
+                    android:orientation="vertical"
+                    android:gravity="end">
+
+                    <TextView
+                        android:id="@+id/row_time_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#1C1C1E" />
+
+                    <TextView
+                        android:id="@+id/row_end_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:maxLines="1"
+                        android:textSize="11sp"
+                        android:textColor="#8E8E93" />
+
+                    <TextView
+                        android:id="@+id/row_badge_3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_gravity="end"
+                        android:text="正在上"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:background="@drawable/widget_badge_bg"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
         </FrameLayout>
+    </LinearLayout>
+
+    <!-- ============ 排列二：紧凑两列（半宽并排，一行两门课，只占两格） ============ -->
+    <LinearLayout
+        android:id="@+id/ll_grid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- 第 1 行：gcell_0 左上 + gcell_1 右上 -->
+        <LinearLayout
+            android:id="@+id/grow_0"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:id="@+id/gcell_0"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_0"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_0"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_0"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_0"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/gcell_1"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_1"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_1"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_1"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- 第 2 行：gcell_2 左 + gcell_3 右 -->
+        <LinearLayout
+            android:id="@+id/grow_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:id="@+id/gcell_2"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_2"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_2"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_2"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/gcell_3"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_3"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_3"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_3"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- 第 3 行：gcell_4 左 + gcell_5 右 -->
+        <LinearLayout
+            android:id="@+id/grow_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:id="@+id/gcell_4"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_4"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_4"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_4"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_4"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/gcell_5"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/gcell_bg_5"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_capsule" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp">
+
+                    <ImageView
+                        android:id="@+id/gcell_bar_5"
+                        android:layout_width="3dp"
+                        android:layout_height="22dp"
+                        android:scaleType="fitXY"
+                        android:contentDescription="@null"
+                        android:src="@drawable/widget_row_bar" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="7dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/gcell_name_5"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:textColor="#1C1C1E" />
+
+                        <TextView
+                            android:id="@+id/gcell_info_5"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="10sp"
+                            android:textColor="#8E8E93" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <TextView

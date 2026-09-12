@@ -231,7 +231,8 @@ object AppWidgetUtils {
         val titleColor = if (isDark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
         val subColor = 0xFF8E8E93.toInt()
 
-        // 本次显示几行：按卡片实际高度算（行高 50dp + 行距 6dp，标题区留 40dp，上下内边距共 24dp）
+        // 本次显示几门课：按卡片实际高度算（标题区留 40dp，上下内边距共 24dp）
+        // 竖排：行高 50dp + 行距 6dp，最多 4 行；紧凑两列：行高 46dp + 行距 6dp，每行两格，最多 3 行
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
         val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
@@ -240,7 +241,10 @@ object AppWidgetUtils {
             minHeight > 0 -> minHeight
             else -> 240
         }
+        val compact = context.getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1
         val maxRows = ((cardHeightDp - 24 - 40 + 6) / 56).coerceIn(1, 4)
+        val maxGridRows = ((cardHeightDp - 24 - 40 + 6) / 52).coerceIn(1, 3)
+        val maxItems = if (compact) maxGridRows * 2 else maxRows
 
         val hideEnded = context.getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, false)
         val all = if (offset >= 0) WidgetData.getCoursesForOffset(context, offset, tableBean) else emptyList()
@@ -251,7 +255,10 @@ object AppWidgetUtils {
             hideEnded -> emptyList()
             else -> all
         }
-        val rowItems = showList.take(maxRows)
+        // 递补：showList 已经滤掉上完的课（除非当天全上完、且没开「隐藏已结束课程」），
+        // 所以每节课结束的精确闹钟一响，卡片就会把下一门没上的课顶上来，
+        // 永远只显示「还没上的前 N 门」；N 由排列方式与卡片当前高度共同决定。
+        val rowItems = showList.take(maxItems)
         val empty = rowItems.isEmpty()
         val titleCount = maxOf(unfinished.size, rowItems.size)
 
@@ -308,62 +315,136 @@ object AppWidgetUtils {
             mRemoteViews.setViewVisibility(R.id.iv_back, View.VISIBLE)
         }
 
-        // 课程行：4 个静态行块（真实控件，不用位图，不会出现滚动条）
+        // 课程行：两套静态控件各对应一种排列，只渲染命中的那一套，另一套整体隐藏
         // 行 id 一律用显式数组，不要用 R.id.row_0 + i 这类算术递增
-        val rowIds = intArrayOf(R.id.row_0, R.id.row_1, R.id.row_2, R.id.row_3)
-        val bgIds = intArrayOf(R.id.row_bg_0, R.id.row_bg_1, R.id.row_bg_2, R.id.row_bg_3)
-        val barIds = intArrayOf(R.id.row_bar_0, R.id.row_bar_1, R.id.row_bar_2, R.id.row_bar_3)
-        val nameIds = intArrayOf(R.id.row_name_0, R.id.row_name_1, R.id.row_name_2, R.id.row_name_3)
-        val infoIds = intArrayOf(R.id.row_info_0, R.id.row_info_1, R.id.row_info_2, R.id.row_info_3)
-        val badgeIds = intArrayOf(R.id.row_badge_0, R.id.row_badge_1, R.id.row_badge_2, R.id.row_badge_3)
         val nameColor = if (isDark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
 
-        for (i in rowIds.indices) {
-            if (i < rowItems.size) {
-                val item = rowItems[i]
-                val courseColor = try {
-                    android.graphics.Color.parseColor(item.color)
-                } catch (e: Exception) {
-                    0xFF007AFF.toInt()
-                }
-                val ongoing = item.status == WidgetData.STATUS_ONGOING
+        if (compact) {
+            // ===== 排列二：紧凑两列（半宽并排，一行两门课，卡片能压到两格） =====
+            mRemoteViews.setViewVisibility(R.id.ll_course, View.GONE)
+            mRemoteViews.setViewVisibility(R.id.ll_grid, View.VISIBLE)
 
-                // 胶囊底：正常 36/255 课程色，进行中更实一点用 61/255
-                mRemoteViews.setInt(bgIds[i], "setColorFilter",
-                        android.graphics.Color.argb(if (ongoing) 0x3D else 0x24,
-                                android.graphics.Color.red(courseColor),
-                                android.graphics.Color.green(courseColor),
-                                android.graphics.Color.blue(courseColor)))
-                // 左侧小色条：纯课程色
-                mRemoteViews.setInt(barIds[i], "setColorFilter", courseColor)
+            val gridIds = intArrayOf(R.id.gcell_0, R.id.gcell_1, R.id.gcell_2,
+                    R.id.gcell_3, R.id.gcell_4, R.id.gcell_5)
+            val gBgIds = intArrayOf(R.id.gcell_bg_0, R.id.gcell_bg_1, R.id.gcell_bg_2,
+                    R.id.gcell_bg_3, R.id.gcell_bg_4, R.id.gcell_bg_5)
+            val gBarIds = intArrayOf(R.id.gcell_bar_0, R.id.gcell_bar_1, R.id.gcell_bar_2,
+                    R.id.gcell_bar_3, R.id.gcell_bar_4, R.id.gcell_bar_5)
+            val gNameIds = intArrayOf(R.id.gcell_name_0, R.id.gcell_name_1, R.id.gcell_name_2,
+                    R.id.gcell_name_3, R.id.gcell_name_4, R.id.gcell_name_5)
+            val gInfoIds = intArrayOf(R.id.gcell_info_0, R.id.gcell_info_1, R.id.gcell_info_2,
+                    R.id.gcell_info_3, R.id.gcell_info_4, R.id.gcell_info_5)
+            val gRowIds = intArrayOf(R.id.grow_0, R.id.grow_1, R.id.grow_2)
 
-                mRemoteViews.setTextViewText(nameIds[i], item.courseName)
-                mRemoteViews.setTextColor(nameIds[i], nameColor)
+            for (i in gridIds.indices) {
+                if (i < rowItems.size) {
+                    val item = rowItems[i]
+                    val gc = try {
+                        android.graphics.Color.parseColor(item.color)
+                    } catch (e: Exception) {
+                        0xFF007AFF.toInt()
+                    }
+                    val ongoing = item.status == WidgetData.STATUS_ONGOING
+                    mRemoteViews.setInt(gBgIds[i], "setColorFilter",
+                            android.graphics.Color.argb(if (ongoing) 0x3D else 0x24,
+                                    android.graphics.Color.red(gc),
+                                    android.graphics.Color.green(gc),
+                                    android.graphics.Color.blue(gc)))
+                    mRemoteViews.setInt(gBarIds[i], "setColorFilter", gc)
 
-                val infoText = if (item.room.isNotEmpty()) {
-                    "${item.startText} - ${item.endText}  @${item.room}"
+                    mRemoteViews.setTextViewText(gNameIds[i], item.courseName)
+                    mRemoteViews.setTextColor(gNameIds[i], nameColor)
+
+                    // 一格只有半张卡宽，时间和地点缩成一行
+                    val info = buildString {
+                        append("${item.startText}-${item.endText}")
+                        if (item.room.isNotEmpty()) append("  @${item.room}")
+                    }
+                    mRemoteViews.setTextViewText(gInfoIds[i], info)
+                    mRemoteViews.setTextColor(gInfoIds[i], subColor)
+                    mRemoteViews.setViewVisibility(gridIds[i], View.VISIBLE)
                 } else {
-                    "${item.startText} - ${item.endText}"
+                    // 空格子用 INVISIBLE 而不是 GONE：保留半宽占位，
+                    // 否则同一行左边那一格会被 weight 撑成整行宽
+                    mRemoteViews.setViewVisibility(gridIds[i],
+                            if (i < maxItems) View.INVISIBLE else View.GONE)
                 }
-                mRemoteViews.setTextViewText(infoIds[i], infoText)
-                mRemoteViews.setTextColor(infoIds[i], subColor)
+            }
+            // 整行都没课就把整行收起来，不留下多余的 6dp 行距
+            for (r in gRowIds.indices) {
+                mRemoteViews.setViewVisibility(gRowIds[r],
+                        if (r * 2 < rowItems.size) View.VISIBLE else View.GONE)
+            }
+        } else {
+            // ===== 排列一：竖排列表（一行一门课，左侧课名/地点，右侧上课时间） =====
+            mRemoteViews.setViewVisibility(R.id.ll_grid, View.GONE)
+            mRemoteViews.setViewVisibility(R.id.ll_course, View.VISIBLE)
 
-                // “正在上”小胶囊：只有进行中的课显示
-                if (ongoing) {
-                    mRemoteViews.setViewVisibility(badgeIds[i], View.VISIBLE)
-                    mRemoteViews.setTextColor(badgeIds[i], courseColor)
-                    mRemoteViews.setInt(badgeIds[i], "setColorFilter",
-                            android.graphics.Color.argb(0x2E,
+            val rowIds = intArrayOf(R.id.row_0, R.id.row_1, R.id.row_2, R.id.row_3)
+            val bgIds = intArrayOf(R.id.row_bg_0, R.id.row_bg_1, R.id.row_bg_2, R.id.row_bg_3)
+            val barIds = intArrayOf(R.id.row_bar_0, R.id.row_bar_1, R.id.row_bar_2, R.id.row_bar_3)
+            val nameIds = intArrayOf(R.id.row_name_0, R.id.row_name_1, R.id.row_name_2, R.id.row_name_3)
+            val infoIds = intArrayOf(R.id.row_info_0, R.id.row_info_1, R.id.row_info_2, R.id.row_info_3)
+            val timeIds = intArrayOf(R.id.row_time_0, R.id.row_time_1, R.id.row_time_2, R.id.row_time_3)
+            val endIds = intArrayOf(R.id.row_end_0, R.id.row_end_1, R.id.row_end_2, R.id.row_end_3)
+            val badgeIds = intArrayOf(R.id.row_badge_0, R.id.row_badge_1, R.id.row_badge_2, R.id.row_badge_3)
+
+            for (i in rowIds.indices) {
+                if (i < rowItems.size) {
+                    val item = rowItems[i]
+                    val courseColor = try {
+                        android.graphics.Color.parseColor(item.color)
+                    } catch (e: Exception) {
+                        0xFF007AFF.toInt()
+                    }
+                    val ongoing = item.status == WidgetData.STATUS_ONGOING
+
+                    // 胶囊底：正常 36/255 课程色，进行中更实一点用 61/255
+                    mRemoteViews.setInt(bgIds[i], "setColorFilter",
+                            android.graphics.Color.argb(if (ongoing) 0x3D else 0x24,
                                     android.graphics.Color.red(courseColor),
                                     android.graphics.Color.green(courseColor),
                                     android.graphics.Color.blue(courseColor)))
-                } else {
-                    mRemoteViews.setViewVisibility(badgeIds[i], View.GONE)
-                }
+                    // 左侧小色条：纯课程色
+                    mRemoteViews.setInt(barIds[i], "setColorFilter", courseColor)
 
-                mRemoteViews.setViewVisibility(rowIds[i], View.VISIBLE)
-            } else {
-                mRemoteViews.setViewVisibility(rowIds[i], View.GONE)
+                    mRemoteViews.setTextViewText(nameIds[i], item.courseName)
+                    mRemoteViews.setTextColor(nameIds[i], nameColor)
+
+                    // 课名下面那行：地点优先，没地点退到老师，都没有就显示节次
+                    val subText = when {
+                        item.room.isNotEmpty() -> "@${item.room}"
+                        item.teacher.isNotEmpty() -> item.teacher
+                        else -> "第${item.startNode}-${item.startNode + item.step - 1}节"
+                    }
+                    mRemoteViews.setTextViewText(infoIds[i], subText)
+                    mRemoteViews.setTextColor(infoIds[i], subColor)
+
+                    // 右侧填时间：开始时间加粗，结束时间在下（进行中时换成「正在上」小胶囊）
+                    mRemoteViews.setTextViewText(timeIds[i], item.startText)
+                    mRemoteViews.setTextColor(timeIds[i], nameColor)
+                    mRemoteViews.setTextViewText(endIds[i], item.endText)
+                    mRemoteViews.setTextColor(endIds[i], subColor)
+
+                    // “正在上”小胶囊：只有进行中的课显示
+                    if (ongoing) {
+                        mRemoteViews.setViewVisibility(endIds[i], View.GONE)
+                        mRemoteViews.setViewVisibility(badgeIds[i], View.VISIBLE)
+                        mRemoteViews.setTextColor(badgeIds[i], courseColor)
+                        mRemoteViews.setInt(badgeIds[i], "setColorFilter",
+                                android.graphics.Color.argb(0x2E,
+                                        android.graphics.Color.red(courseColor),
+                                        android.graphics.Color.green(courseColor),
+                                        android.graphics.Color.blue(courseColor)))
+                    } else {
+                        mRemoteViews.setViewVisibility(endIds[i], View.VISIBLE)
+                        mRemoteViews.setViewVisibility(badgeIds[i], View.GONE)
+                    }
+
+                    mRemoteViews.setViewVisibility(rowIds[i], View.VISIBLE)
+                } else {
+                    mRemoteViews.setViewVisibility(rowIds[i], View.GONE)
+                }
             }
         }
 

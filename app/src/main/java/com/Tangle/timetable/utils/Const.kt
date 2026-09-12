@@ -47,6 +47,9 @@ object Const {
     /** 今日小部件「课程预告范围」：从今天起一共看几天，只允许 2 或 7（2 = 今天和明天） */
     const val KEY_WIDGET_PREVIEW_DAYS = "widget_preview_days"
 
+    /** 今日小部件课程排列：0 = 竖排列表（一行一门课），1 = 紧凑两列（半宽并排，一行两门课） */
+    const val KEY_TODAY_CARD_LAYOUT = "today_card_layout"
+
     /** 生日提醒：月份 1-12；没有这个键（或不在范围内）表示未设置 */
     const val KEY_BIRTHDAY_MONTH = "birthday_month"
 

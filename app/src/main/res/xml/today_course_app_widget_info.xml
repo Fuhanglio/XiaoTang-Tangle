@@ -3,7 +3,7 @@
     android:initialKeyguardLayout="@layout/today_course_app_widget"
     android:initialLayout="@layout/today_course_app_widget"
     android:minWidth="324dp"
-    android:minHeight="240dp"
+    android:minHeight="120dp"
     android:previewImage="@drawable/widget_preview_today"
     android:resizeMode="vertical|horizontal"
     android:updatePeriodMillis="10800000"

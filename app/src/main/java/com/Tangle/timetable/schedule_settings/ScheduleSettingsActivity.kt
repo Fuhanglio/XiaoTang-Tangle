@@ -205,6 +205,7 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
         items.add(SeekBarItem("小部件格子高度", viewModel.table.widgetItemHeight, 32, 96, "dp", keys = listOf("格子", "高度", "格子高度", "显示", "小部件", "小", "插件", "桌面")))
         items.add(SeekBarItem("小部件格子不透明度", viewModel.table.widgetItemAlpha, 0, 100, "%", keys = listOf("格子", "透明", "格子高度", "显示", "小部件", "小", "插件", "桌面")))
         items.add(SeekBarItem("小部件显示文字大小", viewModel.table.widgetItemTextSize, 8, 16, "sp", keys = listOf("文字", "大小", "文字大小", "小部件", "小", "插件", "桌面")))
+        items.add(HorizontalItem("今日卡排列", todayLayoutText(), keys = listOf("排列", "布局", "两列", "紧凑", "竖排", "并排", "小部件", "小", "插件", "桌面", "日视图")))
         items.add(HorizontalItem("课程预告范围", previewDaysText(), keys = listOf("预告", "提前", "天数", "课程预告", "小部件", "小", "插件", "桌面", "日视图")))
         items.add(HorizontalItem("生日提醒", birthdayText(), keys = listOf("生日", "提醒", "祝福", "祝愿", "留言", "小部件", "小", "插件", "桌面", "日视图")))
         items.add(VerticalItem("小部件标题颜色", "指标题等字体的颜色\n对于日视图则是全部文字的颜色\n还可以调颜色的透明度哦 (●ﾟωﾟ●)", keys = listOf("颜色", "显示", "文字", "文字颜色", "小部件", "小", "插件", "桌面")))
@@ -214,6 +215,10 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
         items.add(CategoryItem("高级", false))
         items.add(VerticalItem("高级功能", "主题颜色、上课提醒、小部件等全局设置", keys = listOf("高级", "设置", "提醒", "主题")))
     }
+
+    /** 「今日卡排列」当前值文案：0 = 竖排列表，1 = 紧凑两列 */
+    private fun todayLayoutText(): String =
+            if (getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1) "紧凑两列" else "竖排列表"
 
     /** 「课程预告范围」当前值文案：只允许 2 天或 7 天 */
     private fun previewDaysText(): String =
@@ -365,6 +370,32 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
                             type = viewModel.table.type
                     ))
                 }
+            }
+            "今日卡排列" -> {
+                // 两种排列互斥，永远只有一个生效（存在同一个 prefs 键里）
+                val options = arrayOf(
+                        "竖排列表：一行一门课，右侧显示上课时间",
+                        "紧凑两列：半宽并排，一行两门课，卡片更矮")
+                val current = if (getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1) 1 else 0
+                MaterialAlertDialogBuilder(this)
+                        .setTitle("今日卡排列")
+                        .setSingleChoiceItems(options, current) { dialog, which ->
+                            getPrefer().edit { putInt(Const.KEY_TODAY_CARD_LAYOUT, which) }
+                            item.value = if (which == 1) "紧凑两列" else "竖排列表"
+                            mAdapter.notifyItemChanged(position)
+                            // 按新排列立刻刷新今日小部件
+                            launch {
+                                val awm = AppWidgetManager.getInstance(applicationContext)
+                                viewModel.getScheduleWidgetIds().forEach {
+                                    if (it.detailType == 1) {
+                                        AppWidgetUtils.refreshTodayWidget(applicationContext, awm, it.id, viewModel.table)
+                                    }
+                                }
+                            }
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
             }
             "课程预告范围" -> {
                 // 两个选项互斥，永远只有一个生效（存在同一个 prefs 键里）
