@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 全局主色调：iOS 蓝 -->
+    <color name="colorPrimary">#007AFF</color>
+    <color name="colorPrimaryDark">#0066D6</color>
+    <color name="colorAccent">#007AFF</color>
+    <!-- 深色模式下的主色（供代码按需读取） -->
+    <color name="colorPrimaryNight">#0A84FF</color>
+
+    <!-- iOS 语义色 -->
+    <color name="switch_on">#34C759</color>
+    <color name="switch_track_off">#D1D1D6</color>
+    <color name="warn_orange">#FF9500</color>
+    <color name="danger_red">#FF3B30</color>
+
+    <!-- 全局骨架：中性灰白 -->
+    <color name="page_bg">#F2F2F7</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="card_shadow">#1A000000</color>
+    <color name="divider">#F0F0F2</color>
+    <color name="grid_dashed">#DDDDDD</color>
+
+    <!-- 文字层级 -->
+    <color name="text_primary">#1C1C1E</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_hint">#AEAEB2</color>
+    <color name="grey">#8E8E93</color>
+    <color name="deep_grey">#1C1C1E</color>
+
+    <!-- 课表相关 -->
+    <color name="nodeIndex" >#00000000</color>
+    <color name="backgroundColor">#F2F2F7</color>
+    <color name="main_title_bg">#94ffffff</color>
+
+    <!-- 设置图标柔和块（浅色/深色通用，白图标） -->
+    <color name="icon_blue">#5B9BFF</color>
+    <color name="icon_teal">#34C7A0</color>
+    <color name="icon_purple">#AF9BFF</color>
+    <color name="icon_indigo">#6E8BFB</color>
+    <color name="icon_pink">#F78FB3</color>
+    <color name="icon_green">#7BD389</color>
+    <color name="icon_cyan">#5CC8D7</color>
+    <color name="icon_slate">#94A7C8</color>
+    <color name="icon_orange">#FFB05C</color>
+    <color name="icon_gray">#8E8E93</color>
+
+    <!-- 保留原有颜色名（兼容代码引用） -->
+    <color name="red">#EF9A9A</color>
+    <color name="pink">#F48FB1</color>
+    <color name="blue">#64B5F6</color>
+    <color name="green">#81C784</color>
+    <color name="yellow">#FFE082</color>
+    <color name="purple">#BA68C8</color>
+    <color name="orange">#FFB74D</color>
+    <color name="deepOrange">#FF8A65</color>
+    <color name="lightBlue">#4DD0E1</color>
+    <color name="ruri">#6FC3DF</color>
+
+    <!-- 马卡龙色系 课程格子默认分配 -->
+    <integer-array name="customizedColors">
+        <item>@color/pink</item>
+        <item>@color/blue</item>
+        <item>@color/lightBlue</item>
+        <item>@color/orange</item>
+        <item>@color/purple</item>
+        <item>@color/red</item>
+        <item>@color/green</item>
+        <item>@color/yellow</item>
+        <item>@color/deepOrange</item>
+    </integer-array>
+
+</resources>

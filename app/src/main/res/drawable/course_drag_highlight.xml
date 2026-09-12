@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 拖动课程时的落点高亮：半透明主色填充 + 实色描边，深浅色模式下都能看清 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#3D5D4037" />
+    <corners android:radius="14dp" />
+    <stroke
+        android:width="2dp"
+        android:color="#B35D4037" />
+</shape>

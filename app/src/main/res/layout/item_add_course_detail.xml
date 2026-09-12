@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- iOS 风白色圆角 16 卡片；所有控件 id 与点击行为保持不变 -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginBottom="12dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="4dp"
+    android:background="@drawable/card_bg">
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tv_item"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:singleLine="true"
+        android:text="时间段"
+        android:textColor="#8E8E93"
+        android:textSize="12sp" />
+
+    <!-- 周次 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/ll_weeks"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_below="@id/tv_item"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_date"
+            android:tint="@color/colorPrimary" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/et_weeks"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:hint="周数"
+            android:textColorHint="#AEAEB2"
+            android:singleLine="true"
+            android:textColor="#1C1C1E"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="#C7C7CC" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <View
+        android:id="@+id/div_weeks"
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:layout_below="@id/ll_weeks"
+        android:layout_marginStart="52dp"
+        android:layout_marginEnd="16dp"
+        android:background="#F0F0F2" />
+
+    <!-- 时间 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/ll_time"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_below="@id/div_weeks"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_clock"
+            android:tint="@color/colorPrimary" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/et_time"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:hint="周一    第1 - 2节"
+            android:textColorHint="#AEAEB2"
+            android:singleLine="true"
+            android:textColor="#1C1C1E"
+            android:textSize="16sp"
+            app:autoSizeMaxTextSize="16sp"
+            app:autoSizeMinTextSize="11sp"
+            app:autoSizeStepGranularity="1sp"
+            app:autoSizeTextType="uniform" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="#C7C7CC" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <View
+        android:id="@+id/div_time"
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:layout_below="@id/ll_time"
+        android:layout_marginStart="52dp"
+        android:layout_marginEnd="16dp"
+        android:background="#F0F0F2" />
+
+    <!-- 授课老师 -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/ll_teacher"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_below="@id/div_time"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_person_icon"
+            android:tint="@color/colorPrimary" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/et_teacher"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:hint="授课老师（可不填）"
+            android:textColorHint="#AEAEB2"
+            android:singleLine="true"
+            android:textColor="#1C1C1E"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="#C7C7CC" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <View
+        android:id="@+id/div_teacher"
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:layout_below="@id/ll_teacher"
+        android:layout_marginStart="52dp"
+        android:layout_marginEnd="16dp"
+        android:background="#F0F0F2" />
+
+    <!-- 上课地点（最后一行，下面不加分割线） -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:id="@+id/ll_room"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_below="@id/div_teacher"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_location"
+            android:tint="@color/colorPrimary" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/et_room"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@null"
+            android:gravity="center_vertical"
+            android:hint="上课地点（可不填）"
+            android:textColorHint="#AEAEB2"
+            android:singleLine="true"
+            android:textColor="#1C1C1E"
+            android:textSize="16sp" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@null"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="#C7C7CC" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <!-- 删除按钮：放在末尾声明，确保位于最上层、点击不被内容行遮挡 -->
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ib_delete"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_alignParentEnd="true"
+        android:background="@null"
+        android:contentDescription="@null"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_close"
+        android:tint="#FF3B30" />
+
+</RelativeLayout>

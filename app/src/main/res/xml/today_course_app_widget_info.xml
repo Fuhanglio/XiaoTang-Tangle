@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialKeyguardLayout="@layout/today_course_app_widget"
+    android:initialLayout="@layout/today_course_app_widget"
+    android:minWidth="324dp"
+    android:minHeight="240dp"
+    android:previewImage="@drawable/widget_preview_today"
+    android:resizeMode="vertical|horizontal"
+    android:updatePeriodMillis="10800000"
+    android:widgetCategory="home_screen" />

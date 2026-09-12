@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.Tangle.timetable">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.USE_EXACT_ALARM"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        tools:ignore="GoogleAppIndexingWarning"
+        tools:replace="android:allowBackup"
+        tools:targetApi="n">
+        <activity android:name=".settings.SettingsHostActivity"></activity>
+        <activity
+            android:name=".widget.PermissionGuideActivity"
+            android:exported="false"
+            android:label="权限设置" />
+        <activity
+            android:name=".suda_life.SudaLifeActivity"
+            android:label="苏大生活" />
+
+        <meta-data
+            android:name="CHANNEL"
+            android:value="${CHANNEL}" />
+
+        <activity
+            android:name=".schedule_import.LoginWebActivity"
+            android:screenOrientation="portrait">
+            <intent-filter
+                android:label="导入到课程表"
+                tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.wakeup_schedule" />
+            </intent-filter>
+            <intent-filter
+                android:label="导入到课程表"
+                tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:mimeType="text/*"
+                    android:pathPattern=".*\\.html" />
+            </intent-filter>
+            <intent-filter
+                android:label="导入到课程表"
+                tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:mimeType="text/*"
+                    android:pathPattern=".*\\.csv" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".schedule.ScheduleActivity"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden|screenLayout" />
+        <activity
+            android:name=".course_add.AddCourseActivity"
+            android:label="添加课程"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustPan" />
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:label="设置" />
+        <activity
+            android:name=".settings.TimeSettingsActivity"
+            android:label="选择时间表" />
+
+        <receiver
+            android:name=".schedule_appwidget.ScheduleAppWidget"
+            android:label="一周课程">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/schedule_app_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".intro.AboutActivity"
+            android:label="关于" />
+        <activity
+            android:name=".SplashActivity"
+            android:theme="@style/SplashTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".schedule_manage.ScheduleManageActivity"
+            android:label="多课表管理" />
+        <activity
+            android:name=".schedule_settings.ScheduleSettingsActivity"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:label="课表设置" />
+        <activity
+            android:name=".schedule_settings.BirthdayReminderActivity"
+            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:label="生日提醒" />
+        <activity
+            android:name=".schedule_appwidget.WeekScheduleAppWidgetConfigActivity"
+            android:label="提示">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".today_appwidget.TodayCourseAppWidget"
+            android:label="当天课程">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_course_app_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".next_appwidget.NextCourseAppWidget"
+            android:label="下一节课">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_course_app_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WidgetUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="com.Tangle.timetable.action.WIDGET_REFRESH" />
+                <action android:name="com.Tangle.timetable.action.WIDGET_RECOMPUTE" />
+                <action android:name="com.Tangle.timetable.action.COURSE_START" />
+                <action android:name="com.Tangle.timetable.action.COURSE_END" />
+                <action android:name="com.Tangle.timetable.action.COURSE_REMIND" />
+                <action android:name="com.Tangle.timetable.action.WIDGET_OPEN_APP" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".schedule_import.SchoolListActivity"
+            android:label="选择学校" />
+        <activity
+            android:name=".intro.IntroYoungActivity"
+            android:label="咩咩" />
+    </application>
+
+</manifest>

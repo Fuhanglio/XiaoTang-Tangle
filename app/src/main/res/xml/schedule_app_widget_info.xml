@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.Tangle.timetable.schedule_appwidget.WeekScheduleAppWidgetConfigActivity"
+    android:initialKeyguardLayout="@layout/schedule_app_widget"
+    android:initialLayout="@layout/schedule_app_widget"
+    android:minWidth="324dp"
+    android:minHeight="200dp"
+    android:previewImage="@drawable/widget_preview_week"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="10800000"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,14 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/icon_blue" />
+            <corners android:radius="7dp" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/d_book"
+        android:top="3.5dp"
+        android:bottom="3.5dp"
+        android:left="3.5dp"
+        android:right="3.5dp" />
+</layer-list>

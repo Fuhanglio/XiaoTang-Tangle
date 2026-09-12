@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/next_course_app_widget"
+    android:minWidth="180dp"
+    android:minHeight="140dp"
+    android:previewImage="@drawable/widget_preview_next"
+    android:resizeMode="vertical|horizontal"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

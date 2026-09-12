@@ -1,0 +1,464 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/week_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_today_card_bg">
+
+    <!-- header：左侧课表名与日期范围，右侧刷新与上下周 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_weekTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="我的课表 · 第1周"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#1C1C1E" />
+
+            <TextView
+                android:id="@+id/tv_weekRange"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:text="加载中…"
+                android:textSize="11sp"
+                android:textColor="#8E8E93" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/iv_add"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:padding="3dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_add" />
+
+        <ImageView
+            android:id="@+id/iv_refresh"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:padding="3dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_refresh" />
+
+        <ImageView
+            android:id="@+id/iv_next"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:padding="3dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_next" />
+
+        <ImageView
+            android:id="@+id/iv_back"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:padding="3dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_back"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 每天一行：周日 ~ 周日共 7 个固定行块，靠显隐控制 -->
+    <LinearLayout
+        android:id="@+id/ll_week"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:id="@+id/wrow_0"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_0"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_0"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_0"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_0"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_1"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_1"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_1"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_1"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_2"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_2"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_2"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_2"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_3"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_3"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_3"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_3"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_4"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_4"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_4"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_4"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_4"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_5"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_5"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_5"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_5"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_5"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/wrow_6"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/wrow_bg_6"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_row_capsule" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/wrow_bar_6"
+                    android:layout_width="3dp"
+                    android:layout_height="14dp"
+                    android:scaleType="fitXY"
+                    android:contentDescription="@null"
+                    android:src="@drawable/widget_row_bar" />
+
+                <TextView
+                    android:id="@+id/wrow_label_6"
+                    android:layout_width="62dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8E8E93" />
+
+                <TextView
+                    android:id="@+id/wrow_courses_6"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="12sp"
+                    android:textColor="#1C1C1E" />
+            </LinearLayout>
+        </FrameLayout>
+    </LinearLayout>
+
+</LinearLayout>

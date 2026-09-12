@@ -1,0 +1,357 @@
+<resources>
+    <string name="icon_location" translatable="false"></string>
+    <string name="icon_back" translatable="false"></string>
+    <string name="icon_send" translatable="false"></string>
+    <string name="icon_share" translatable="false"></string>
+    <string name="icon_more" translatable="false"></string>
+    <string name="icon_close" translatable="false"></string>
+    <string name="icon_date" translatable="false"></string>
+    <string name="icon_delete" translatable="false"></string>
+    <string name="icon_upload" translatable="false"></string>
+    <string name="icon_clock" translatable="false"></string>
+    <string name="icon_setting" translatable="false"></string>
+    <string name="icon_search" translatable="false"></string>
+    <string name="icon_info" translatable="false"></string>
+    <string name="icon_refresh" translatable="false"></string>
+    <string name="icon_add" translatable="false"></string>
+    <string name="icon_done" translatable="false"></string>
+    <string name="icon_doc" translatable="false"></string>
+    <string name="icon_msg" translatable="false"></string>
+    <string name="icon_download" translatable="false"></string>
+    <string name="icon_star" translatable="false"></string>
+    <string name="icon_person" translatable="false"></string>
+    <string name="icon_nav" translatable="false"></string>
+
+
+    <string name="text_login_web_title">登录教务系统</string>
+    <string name="hint_student_id">学号</string>
+    <string name="hint_password">密码</string>
+    <string name="hint_check_code">验证码</string>
+    <string name="toast_check_code_get_error">获取验证码失败</string>
+    <string name="text_login">登录</string>
+
+    <string name="text_node">节</string>
+    <string name="text_week">周</string>
+    <string name="appwidget_text">EXAMPLE</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="add_widget">Add widget</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="school_BeijingLinYeDaXue">北京林业大学</string>
+    <string name="school_SuzhouDaXue">苏州大学</string>
+    <string name="school_GuangdongWaiYuWaiMaoDaXue">广东外语外贸大学</string>
+    <string name="school_DalianWaiGuoYuDaxue">大连外国语大学</string>
+    <string name="school_ChangchunDaXue">长春大学</string>
+    <string name="school_TianjinZhongYiYaoDaXue">天津中医药大学</string>
+    <string name="type_ZhengFang">正方教务</string>
+    <string name="type_NewZhengFang">新正方教务</string>
+
+    <string name="type_QiangZhi">强智教务</string>
+
+    <string name="error_course_data">检测到课程数据有误，请仔细核对</string>
+    <string name="error_course_node">有课程的节数大于课表的最大节数</string>
+
+    <string name="setting_schedule_name">课表名称</string>
+    <string name="setting_class_time">上课时间</string>
+    <string name="setting_term_start_date">学期开始日期</string>
+    <string name="setting_nodes">一天课程节数</string>
+    <string name="setting_weeks">学期周数</string>
+    <string name="setting_sunday_first">周日为每周第一天</string>
+    <string name="setting_show_sat">显示周六</string>
+    <string name="setting_show_sun">显示周日</string>
+    <string name="setting_show_time">在格子内显示上课时间</string>
+    <string name="setting_background">课程表背景</string>
+    <string name="setting_header_color">界面文字颜色</string>
+    <string name="setting_course_text_color">课程文字颜色</string>
+    <string name="setting_stroke_color">格子边框颜色</string>
+    <string name="setting_item_height">课程格子高度</string>
+    <string name="setting_item_alpha">课程格子不透明度</string>
+    <string name="setting_course_text_size">课程显示文字大小</string>
+    <string name="setting_show_other_week">显示非本周课程</string>
+
+    <string name="setting_widget_item_height">小部件格子高度</string>
+    <string name="setting_widget_item_alpha">小部件格子不透明度</string>
+    <string name="setting_widget_text_size">小部件显示文字大小</string>
+    <string name="setting_widget_header_color">小部件标题颜色</string>
+    <string name="setting_widget_course_text_color">小部件课程颜色</string>
+    <string name="setting_widget_stroke_color">小部件格子边框颜色</string>
+
+    <string name="setting_show_day_widget_bg">显示日视图背景</string>
+    <string name="setting_show_suda_life">显示侧栏「苏大生活」</string>
+    <string name="setting_setup_schedule">设置当前课表</string>
+    <string name="setting_day_night_theme">显示主题</string>
+
+    <string name="sure">确定</string>
+    <string name="cancel">取消</string>
+
+    <string-array name="day_night_setting">
+        <item>浅色模式</item>
+        <item>深色模式</item>
+        <item>跟随系统</item>
+    </string-array>
+
+    <!-- 今日小部件空态（当天课全上完或当天没课）时显示的短句，每句不超过 10 个字。
+         风格：幽默 / 喜剧 / 励志 / 奋斗 / 关心。想加就往这里继续追加。 -->
+    <string-array name="widget_idle_phrases">
+        <!-- 幽默、喜剧 -->
+        <item>课都跑了，你自由了</item>
+        <item>今天没有课，快乐加倍</item>
+        <item>闹钟今天判了缓刑</item>
+        <item>课本说今天先不打扰你</item>
+        <item>老师也想让你歇会儿</item>
+        <item>空堂时间，宜发呆</item>
+        <item>今日无课，宜躺平</item>
+        <item>没课的日子像偷来的</item>
+        <item>课表：今天我也想放假</item>
+        <item>教室今天不认识你</item>
+        <item>早八今日失灵</item>
+        <item>学校今天放你一马</item>
+        <item>无课，赢麻了</item>
+        <item>课没了，人还在</item>
+        <item>没课，适合去干饭</item>
+        <item>食堂在向你招手</item>
+        <item>今天不上课，今天当家</item>
+        <item>课桌今天很寂寞</item>
+        <item>老师也没想到你闲</item>
+        <item>今日课表一片空白</item>
+        <item>点名点不到你了</item>
+        <item>课本在睡觉，别吵</item>
+        <item>教室今天放大假</item>
+        <item>你的座位今天空着</item>
+        <item>今天没人管你几点起</item>
+        <item>闹钟已被你开除</item>
+        <item>早八今天认输</item>
+        <item>上课铃今天哑了</item>
+        <item>黑板擦今天也休息</item>
+        <item>今天的主角是你</item>
+        <item>无课，建议原地膨胀</item>
+        <item>闲得刚好，别内疚</item>
+        <item>今天你是野生的人</item>
+        <item>课表今天放你鸽子</item>
+        <item>空堂，去当个散人</item>
+        <item>没课的一天像倒放</item>
+        <item>今日份快乐已发货</item>
+        <item>书包今天轻一点</item>
+        <item>不用抢后座了</item>
+        <item>不用抢插座了</item>
+        <item>今天食堂人会少</item>
+        <item>可以慢慢吃早饭</item>
+        <item>早自习跟你无关</item>
+        <item>宜睡到自然醒</item>
+        <item>这节课的人生空着</item>
+        <item>空白格，赢了</item>
+        <item>今天没有必须见的人</item>
+        <item>课件今天归他</item>
+        <item>你可以刷一集剧了</item>
+        <item>空出两小时归你</item>
+        <item>今天课表在休假</item>
+        <item>没人点你的名字</item>
+        <item>无课，宜散漫</item>
+        <item>困意可以好好用</item>
+        <item>今天时间表很空</item>
+        <item>课间十分钟无限延长</item>
+        <item>这个白天很听话</item>
+        <item>今天谁也管不了你</item>
+        <item>无课，胜似假期</item>
+        <item>你比课表先放假</item>
+        <item>今日宜无所事事</item>
+        <item>去操场当闲人吧</item>
+        <item>今天的钟走得很慢</item>
+        <item>你的名字今天自由</item>
+        <item>空白得刚刚好</item>
+        <item>无课，合理浪费</item>
+        <!-- 励志、奋斗 -->
+        <item>空出来的时间别浪费</item>
+        <item>今天的闲是明天的底气</item>
+        <item>趁没课，把计划往前挪</item>
+        <item>别人休息时你正好超车</item>
+        <item>留白是为了写更长答案</item>
+        <item>现在偷的闲将来要还</item>
+        <item>起点低不代表终点低</item>
+        <item>把这两小时存给自己</item>
+        <item>一天不学，手就生了</item>
+        <item>走得慢也别停下</item>
+        <item>你的努力不会白费</item>
+        <item>攒够实力再谈运气</item>
+        <item>别让空闲变成空白</item>
+        <item>今天多走一步</item>
+        <item>稳住，你正在变强</item>
+        <item>慢一点，但别停</item>
+        <item>把想做的事排上</item>
+        <item>提前一步，少慌一次</item>
+        <item>空堂两小时，够读一章</item>
+        <item>拉开差距靠空闲时间</item>
+        <item>别人在睡你在攒本事</item>
+        <item>今天的松弛是明天底气</item>
+        <item>把空闲借给未来</item>
+        <item>没人看见的努力也算数</item>
+        <item>一点点也行，别停</item>
+        <item>现在开始就不算晚</item>
+        <item>差距藏在空闲里</item>
+        <item>别等有状态才开始</item>
+        <item>先做十分钟再说</item>
+        <item>目标写下来才算数</item>
+        <item>复习一遍胜空想十遍</item>
+        <item>你的对手也在休息吗</item>
+        <item>稳住节奏，别乱阵</item>
+        <item>一节课能背二十个词</item>
+        <item>把手机放远一点</item>
+        <item>今天多看两页书</item>
+        <item>小事做扎实就是本事</item>
+        <item>你的每一步都算数</item>
+        <item>累了可以歇别放弃</item>
+        <item>坚持的人最后都不差</item>
+        <item>别急，路还长</item>
+        <item>慢就是快，稳就是赢</item>
+        <item>从今天开始攒底气</item>
+        <item>比昨天好一点就够</item>
+        <item>想变强就得有点狠</item>
+        <item>把想法落到今天</item>
+        <item>现在做的都会用上</item>
+        <item>趁年轻多折腾</item>
+        <item>每次坚持都在加分</item>
+        <item>不止步就不算输</item>
+        <item>你的努力有人看见</item>
+        <item>把无聊变成优势</item>
+        <item>今天练一点，明天多点</item>
+        <item>别把时间喂给短视频</item>
+        <item>静下来做件正事</item>
+        <item>一步一个脚印地走</item>
+        <item>别怕起步晚，怕不动</item>
+        <item>你比想象中更能扛</item>
+        <item>每天都值得认真过</item>
+        <item>把野心藏在日常里</item>
+        <item>今天也把计划往前推</item>
+        <item>走自己的节奏就好</item>
+        <item>沉住气，火候差一点</item>
+        <item>熬住的人会看到结果</item>
+        <item>未来的你会谢谢现在</item>
+        <item>现在多做，将来少求</item>
+        <item>与其焦虑，不如动手</item>
+        <item>每天进步一点点</item>
+        <item>你的坚持很值钱</item>
+        <item>想清楚就去干</item>
+        <item>不怕慢，就怕站着</item>
+        <item>稳住，一切都在变好</item>
+        <item>空档期才是超车期</item>
+        <item>用空闲打败昨天的你</item>
+        <item>你欠自己一个开始</item>
+        <item>别把机会留给明天</item>
+        <item>用力生活，不留余地</item>
+        <item>今天汗水明天底气</item>
+        <item>一直走下去就会到</item>
+        <!-- 关心 -->
+        <item>记得吃饭，别又饿着</item>
+        <item>有空就补个觉吧</item>
+        <item>天冷了加件衣服</item>
+        <item>多喝热水，别硬扛</item>
+        <item>眼睛也该歇一歇</item>
+        <item>给家里打个电话吧</item>
+        <item>今天别熬太晚了</item>
+        <item>好好吃饭比啥都强</item>
+        <item>心情不好就出去走走</item>
+        <item>别把委屈一个人扛</item>
+        <item>累了就停，不丢人</item>
+        <item>记得按时吃药</item>
+        <item>早睡比刷手机值</item>
+        <item>别总跟自己较劲</item>
+        <item>记得喝水，慢慢来</item>
+        <item>坐久了就站起来</item>
+        <item>有事别自己憋着</item>
+        <item>想家了就回去看看</item>
+        <item>去操场走两圈吧</item>
+        <item>今天也辛苦了</item>
+        <item>记得吃点水果</item>
+        <item>别总坐着，动一动</item>
+        <item>天凉了记得穿外套</item>
+        <item>水杯别空着</item>
+        <item>困了就眯十分钟</item>
+        <item>别拿身体换成绩</item>
+        <item>心里堵就说出来</item>
+        <item>回家路上慢一点</item>
+        <item>记得给自己留点甜</item>
+        <item>别熬夜刷手机了</item>
+        <item>记得笑一笑</item>
+        <item>有事给朋友打个电话</item>
+        <item>别硬撑着，会累坏</item>
+        <item>今天也要好好吃饭</item>
+        <item>累了就早点睡</item>
+        <item>眼睛累了闭一会儿</item>
+        <item>别跟自己过不去</item>
+        <item>记得吃点热的</item>
+        <item>想你的人不催你</item>
+        <item>慢慢来，来得及</item>
+        <item>别把难过攒着</item>
+        <item>记得仰头看看天</item>
+        <item>晒晒太阳也不错</item>
+        <item>记得吃药别忘</item>
+        <item>要开心点啊</item>
+        <item>别总一个人扛</item>
+        <item>想吃啥就去吃</item>
+        <item>困了就睡，别撑</item>
+        <item>记得给妈妈回消息</item>
+        <item>你已经很棒了</item>
+        <item>别太在意别人说啥</item>
+        <item>今天舒服最重要</item>
+        <item>冷了就加件衣服</item>
+        <item>记得喝口热水</item>
+        <item>累了就停一会儿</item>
+        <item>心里有光就不怕黑</item>
+        <item>慢慢吃，别噎着</item>
+        <item>走路别看手机</item>
+        <item>记得放松肩膀</item>
+        <item>别让自己太忙了</item>
+        <item>想哭就哭一场吧</item>
+        <item>你值得被好好对待</item>
+        <item>今天也要照顾好自己</item>
+        <item>别把坏情绪憋心里</item>
+        <item>记得按时吃饭</item>
+        <item>多穿点，别感冒</item>
+        <item>想休息就休息</item>
+        <item>记得对自己好一点</item>
+        <item>你不是一个人在扛</item>
+        <item>今天也谢谢你努力</item>
+        <!-- 遗憾 -->
+        <item>别让今天留下遗憾</item>
+        <item>遗憾也是一种提醒</item>
+        <item>想做就去做，别留憾</item>
+        <item>少一点遗憾多点行动</item>
+        <item>遗憾会过去别困住自己</item>
+        <item>不遗憾的人生走出来</item>
+        <item>今天别再拖延了</item>
+        <item>想做就现在做</item>
+        <item>别等失去了才后悔</item>
+        <item>遗憾教会你下次珍惜</item>
+        <item>把遗憾留在昨天</item>
+        <item>现在开始还来得及</item>
+        <item>别让明天替你遗憾</item>
+        <item>错过不追，眼前不放</item>
+        <item>有些遗憾是学费</item>
+        <item>想说的就去说</item>
+        <item>别把想做的事一再拖</item>
+        <item>不留憾就是过好今天</item>
+        <item>遗憾过，所以更懂珍惜</item>
+        <item>今日努力不留明天的憾</item>
+        <item>别让遗憾成为习惯</item>
+        <item>该做的事今天就做</item>
+        <item>心里有愧就去弥补</item>
+        <item>与其后悔，不如行动</item>
+        <item>遗憾的对面是珍惜</item>
+        <item>走过遗憾才算是长大</item>
+        <item>别辜负眼前的机会</item>
+        <item>今天多走一步少个憾</item>
+        <item>想见的人就去见</item>
+        <item>有些话别憋太久</item>
+        <item>遗憾不是终点</item>
+        <item>从遗憾里抬头看路</item>
+        <item>别再为昨天懊恼</item>
+        <item>把该做的都做了</item>
+        <item>遗憾也会变成力量</item>
+        <item>别让今天留空白</item>
+        <item>尽全力就不算输</item>
+        <item>每个当下都值得认真</item>
+        <item>不留憾地活在今天</item>
+        <item>遗憾教会人往前走</item>
+    </string-array>
+
+</resources>

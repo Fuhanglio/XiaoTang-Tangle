@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="20dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="20dp"
+    tools:context=".schedule.ImportChooseFragment">
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/ib_close"
+        style="@style/ButtonBackground"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="end"
+        android:contentDescription="@null"
+        android:scaleType="center"
+        android:src="@drawable/ic_close" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:text="导入课程"
+        android:textColor="@color/text_primary"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:text="已支持从两百多所学校的教务直接导入课程"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tv_school"
+        style="@style/ImportPrimaryButton"
+        android:layout_marginTop="20dp"
+        android:text="从学校教务导入" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tv_excel"
+        style="@style/ImportSecondaryButton"
+        android:layout_marginTop="10dp"
+        android:text="从 Excel 导入" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tv_html"
+        style="@style/ImportSecondaryButton"
+        android:layout_marginTop="10dp"
+        android:text="从 Html 文件导入" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/tv_file"
+        style="@style/ImportSecondaryButton"
+        android:layout_marginTop="10dp"
+        android:text="从分享或导出文件导入" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

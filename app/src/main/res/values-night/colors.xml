@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式：iOS 暗色骨架 -->
+    <color name="colorPrimary">#0A84FF</color>
+    <color name="colorPrimaryDark">#0A84FF</color>
+    <color name="colorAccent">#0A84FF</color>
+    <color name="page_bg">#000000</color>
+    <color name="card_bg">#1C1C1E</color>
+    <color name="card_shadow">#33000000</color>
+    <color name="divider">#2C2C2E</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_hint">#636366</color>
+    <color name="switch_track_off">#39393D</color>
+    <color name="backgroundColor">#000000</color>
+    <!-- 柔和图标块在深色下保持不变 -->
+    <color name="icon_blue">#5B9BFF</color>
+    <color name="icon_teal">#34C7A0</color>
+    <color name="icon_purple">#AF9BFF</color>
+    <color name="icon_indigo">#6E8BFB</color>
+    <color name="icon_pink">#F78FB3</color>
+    <color name="icon_green">#7BD389</color>
+    <color name="icon_cyan">#5CC8D7</color>
+    <color name="icon_slate">#94A7C8</color>
+    <color name="icon_orange">#FFB05C</color>
+    <color name="icon_gray">#8E8E93</color>
+</resources>
