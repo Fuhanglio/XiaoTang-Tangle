@@ -60,6 +60,12 @@
         android:text="从 Html 文件导入" />
 
     <com.google.android.material.button.MaterialButton
+        android:id="@+id/tv_image"
+        style="@style/ImportSecondaryButton"
+        android:layout_marginTop="10dp"
+        android:text="从图片导入（识别课表截图）" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/tv_file"
         style="@style/ImportSecondaryButton"
         android:layout_marginTop="10dp"

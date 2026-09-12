@@ -66,6 +66,16 @@ class ImportChooseFragment : BaseDialogFragment() {
             }
         }
 
+        tv_image.setOnClickListener {
+            activity!!.startActivityForResult(
+                    Intent(activity, LoginWebActivity::class.java).apply {
+                        putExtra("import_type", "image")
+                        putExtra("tableId", viewModel.table.id)
+                    },
+                    Const.REQUEST_CODE_IMPORT)
+            this.dismiss()
+        }
+
         tv_school.setOnClickListener {
             //AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             activity!!.startActivityForResult(

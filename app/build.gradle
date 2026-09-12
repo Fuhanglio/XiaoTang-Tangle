@@ -56,8 +56,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 121
-        versionName "3.652"
+        versionCode 122
+        versionName "3.653"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         packagingOptions {
@@ -182,4 +182,16 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core'
     }
     implementation 'com.github.sephiroth74:android-target-tooltip:2.0.4'
+    // 图片导入课表：本地离线 OCR（Tesseract 5.x + 简体中文训练数据）。
+    // 全部识别在本机完成，不联网、不上传图片；训练数据在 assets/tessdata 下，首次运行时释放到私有目录。
+    //
+    // 为什么不用 Maven 坐标（cz.adaptech.tesseract4android:tesseract4android:4.8.0）：
+    // 官方 4.8.0 的 AAR 里 class 文件是 Java 17 字节码（major 61），而本项目 AGP 3.5.3（2019 年）
+    // 只认到 Java 8（major 52），Jetifier 转换该 AAR 时会直接崩溃
+    // （Failed to transform ... using Jetifier. Reason: null），blacklist 也绕不过（失败发生在
+    // processed-jar 阶段）。该库源码只用 Java 8 级 API，所以改用 JDK 8 重编译了它的源码，
+    // 产物为 app/libs/tesseract4android-4.8.0-jdk8.jar（42 个类，major 52），
+    // native 库原样取自官方 AAR 的 jni/ 目录，放在 app/src/main/jniLibs/ 下。
+    // jar 由上面的 fileTree(include: ['*.jar'], dir: 'libs') 自动引入，无需单独声明。
+    // 升级该库时注意：仍要保证字节码不超过 Java 8。
 }

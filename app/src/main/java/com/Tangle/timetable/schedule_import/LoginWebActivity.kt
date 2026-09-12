@@ -38,6 +38,9 @@ class LoginWebActivity : BaseActivity() {
             "html" -> {
                 HtmlImportFragment()
             }
+            "image" -> {
+                ImageImportFragment()
+            }
             else -> {
                 if (viewModel.importType.isNullOrEmpty() || viewModel.school.isNullOrEmpty()) {
                     null

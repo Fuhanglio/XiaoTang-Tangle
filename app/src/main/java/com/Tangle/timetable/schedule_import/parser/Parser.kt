@@ -15,31 +15,46 @@ abstract class Parser(val source: String) {
     abstract fun generateCourseList(): List<Course>
 
     private fun convertCourse(context: Context, tableId: Int) {
-        generateCourseList().forEach { course ->
-            var id = Common.findExistedCourseId(_baseList, course.name)
-            if (id == -1) {
-                id = _baseList.size
-                _baseList.add(
-                        CourseBaseBean(
-                                id = id, courseName = course.name,
-                                color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(context, id % 9))}",
-                                tableId = tableId
-                        )
-                )
+        convertCourses(context, tableId, generateCourseList(), _baseList, _detailList)
+    }
+
+    companion object {
+
+        /**
+         * 把解析出来的 Course 列表转成可以直接写库的 Base/Detail 两表结构。
+         *
+         * 抽成静态方法是为了让「图片识别」那条链路也能复用同一套转换规则
+         * （同名课程合并成一个 id、节数不足 1 时兜底、星期/周次越界兜底）。
+         */
+        fun convertCourses(context: Context, tableId: Int, courses: List<Course>,
+                           baseList: MutableList<CourseBaseBean>,
+                           detailList: MutableList<CourseDetailBean>) {
+            courses.forEach { course ->
+                var id = Common.findExistedCourseId(baseList, course.name)
+                if (id == -1) {
+                    id = baseList.size
+                    baseList.add(
+                            CourseBaseBean(
+                                    id = id, courseName = course.name,
+                                    color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(context, id % 9))}",
+                                    tableId = tableId
+                            )
+                    )
+                }
+                var step = course.endNode - course.startNode + 1
+                if (step < 1) step = 1
+                detailList.add(CourseDetailBean(
+                        id = id, room = course.room,
+                        teacher = course.teacher,
+                        day = if (course.day < 1) 1 else course.day,
+                        step = step,
+                        startWeek = if (course.startWeek < 1) 1 else course.startWeek,
+                        endWeek = if (course.endWeek < 1) 1 else course.endWeek,
+                        type = course.type,
+                        startNode = if (course.startNode < 1) 1 else course.startNode,
+                        tableId = tableId
+                ))
             }
-            var step = course.endNode - course.startNode + 1
-            if (step < 1) step = 1
-            _detailList.add(CourseDetailBean(
-                    id = id, room = course.room,
-                    teacher = course.teacher,
-                    day = if (course.day < 1) 1 else course.day,
-                    step = step,
-                    startWeek = if (course.startWeek < 1) 1 else course.startWeek,
-                    endWeek = if (course.endWeek < 1) 1 else course.endWeek,
-                    type = course.type,
-                    startNode = if (course.startNode < 1) 1 else course.startNode,
-                    tableId = tableId
-            ))
         }
     }
 

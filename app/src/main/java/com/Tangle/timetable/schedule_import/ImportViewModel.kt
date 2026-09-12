@@ -9,6 +9,7 @@ import com.google.gson.reflect.TypeToken
 import com.Tangle.timetable.App
 import com.Tangle.timetable.AppDatabase
 import com.Tangle.timetable.bean.*
+import com.Tangle.timetable.schedule_import.bean.Course
 import com.Tangle.timetable.schedule_import.exception.NetworkErrorException
 import com.Tangle.timetable.schedule_import.exception.PasswordErrorException
 import com.Tangle.timetable.schedule_import.exception.UserNameErrorException
@@ -743,8 +744,31 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun write2DB(): Int {
-        if (baseList.isEmpty()) {
+    /**
+     * 图片识别出来的课程直接写库。
+     *
+     * 和文本解析链路不同，图片那边已经拿到了结构化的 Course 列表（课名/星期/节次/周次/教室），
+     * 不需要再走 Parser 的字符串解析，但转换规则（同名合并、越界兜底）复用 Parser.convertCourses，
+     * 保证两条链路写出来的数据形态完全一致。
+     */
+    suspend fun importFromCourses(courses: List<Course>): Int {
+        baseList.clear()
+        detailList.clear()
+        Parser.convertCourses(getApplication(), importId, courses, baseList, detailList)
+        return write2DB()
+    }
+
+    /**
+     * 取当前正在导入的课表。图片识别用它拿「学期总周数 / 每天最大节次」作兜底；
+     * 用户选择「新建课表」时目标表还没入库，这里会返回 null，由调用方用默认值。
+     */
+    suspend fun getImportTable(): TableBean? {
+        return withContext(Dispatchers.IO) {
+            if (importId > 0) tableDao.getTableById(importId) else null
+        }
+    }
+
+    private suspend fun write2DB(): Int {        if (baseList.isEmpty()) {
             throw Exception("解析错误>_<请确保选择了正确的教务类型，并在显示了课程的页面")
         }
         if (!newFlag) {

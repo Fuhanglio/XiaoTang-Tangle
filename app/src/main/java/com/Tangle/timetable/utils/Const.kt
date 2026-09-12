@@ -21,6 +21,9 @@ object Const {
     /** 申请日历读写权限（同步课表到系统日历用） */
     const val REQUEST_CODE_CALENDAR_PERMISSION = 109
 
+    /** 图片导入课表：选择课表图片 */
+    const val REQUEST_CODE_IMPORT_IMAGE = 110
+
     const val KEY_OLD_VERSION_COURSE = "course"
     const val KEY_OLD_VERSION_BG_URI = "pic_uri"
     const val KEY_OLD_VERSION_TERM_START = "termStart"
