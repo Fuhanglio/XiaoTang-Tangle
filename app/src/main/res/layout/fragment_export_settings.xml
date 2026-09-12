@@ -48,7 +48,7 @@
         android:layout_marginEnd="16dp"
         android:gravity="center"
         android:lineSpacingExtra="2dp"
-        android:text="写进系统日历后，负一屏和桌面的\n「日历」卡片就能看到每天的课，\n还会提前 15 分钟提醒。\n改完课表要再同步一次（自动覆盖）"
+        android:text="写进系统日历后，负一屏和桌面的\n「日历」「日程」卡片就能看到课：\n每节课一条 + 每天一条「今日课表」，\n课前 15 分钟还会提醒。\n改完课表要再同步一次（自动覆盖）"
         android:textSize="11sp" />
 
     <com.google.android.material.button.MaterialButton

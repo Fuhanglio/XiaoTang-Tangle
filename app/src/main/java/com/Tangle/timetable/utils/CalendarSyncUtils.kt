@@ -18,18 +18,20 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * 把整学期课表写进系统日历（每周循环的日程）。
+ * 把整学期课表写进系统日历，一共写两类日程：
  *
- * 这样负一屏 / 桌面上的「日历」「日程」卡片就能显示今天的课，
- * 系统日历本身也会按提前 15 分钟弹上课提醒。
+ * 1. **每节课**：每周循环的日程，带「提前 15 分钟」提醒；
+ * 2. **每日课表**：每天一条全天日程（标题「今日课表 · N 节」，备注列出当天所有课），
+ *    让系统日历按天看、负一屏的「日程」卡片，一眼就能看到这一天要上什么。
  *
  * 几个关键设计：
- * 1. 每条日程的备注第一行是 `[小唐Tangle#课表id]` 这样的标记，
- *    每次同步前先按标记把上一次写进去的日程整批删掉，所以反复同步不会堆重复，天然幂等。
+ * 1. 每条日程的备注第一行是标记（每节课 `[小唐Tangle#课表id]`、日课表 `[小唐Tangle#日课#课表id]`），
+ *    每次同步前先按标记把上一次写进去的整批删掉，所以反复同步不会堆重复，天然幂等。
  * 2. 连续周用一条 `FREQ=WEEKLY;COUNT=n` 的循环日程表示，单双周用 `FREQ=WEEKLY;INTERVAL=2;COUNT=n`，
  *    一门课通常只占 1 条日程，不会把日历塞满。
  * 3. 安卓规定：**循环日程必须用 DURATION，不能给 DTEND**（给了也会被忽略），
  *    所以这里做了分支，只有「只上一周」的日程才走 DTEND。
+ * 4. 全天日程（每日课表）必须用 **UTC 时区 + 午夜边界**，否则日历里日期会错位一天。
  */
 object CalendarSyncUtils {
 
@@ -58,7 +60,11 @@ object CalendarSyncUtils {
             val endMillis: Long,
             val recurring: Boolean,
             val duration: String,
-            val rrule: String?
+            val rrule: String?,
+            /** 全天日程（「每日课表」走这个，显示在当天最上面，而不是某个时间点） */
+            val allDay: Boolean = false,
+            /** 要不要带「提前 15 分钟」提醒（每日课表是汇总，不需要提醒） */
+            val remind: Boolean = true
     )
 
     /** 一段「等间隔」的周次，例如 1~15 周的连续周，或者 1,3,5..15 的单周 */
@@ -131,6 +137,12 @@ object CalendarSyncUtils {
                 // 单门课算不出来就跳过，不影响其它课
             }
         }
+        // 再补上「每日课表」：每天一条，这一天几节课、都是什么、在哪儿，一眼看到
+        try {
+            events.addAll(buildDailyItems(courseList, timeList, table.maxWeek, termStart, table.id))
+        } catch (ignored: Exception) {
+            // 日课表算不出来也不影响每节课的日程
+        }
         if (events.isEmpty()) return 0
 
         // 先清掉上一次同步进来的日程，避免叠加
@@ -146,16 +158,24 @@ object CalendarSyncUtils {
         return events.size
     }
 
-    /** 清掉本 App 之前同步进日历的日程（只清这一张课表的） */
+    /** 清掉本 App 之前同步进日历的日程（只清这一张课表的，含每节课和每日课表两类） */
     fun deleteSyncedEvents(resolver: ContentResolver, tableId: Int): Int {
-        return resolver.delete(
+        var count = resolver.delete(
                 CalendarContract.Events.CONTENT_URI,
                 "${CalendarContract.Events.DESCRIPTION} LIKE ?",
                 arrayOf("${descMark(tableId)}%")
         )
+        count += resolver.delete(
+                CalendarContract.Events.CONTENT_URI,
+                "${CalendarContract.Events.DESCRIPTION} LIKE ?",
+                arrayOf("${descDailyMark(tableId)}%")
+        )
+        return count
     }
 
     private fun descMark(tableId: Int) = "[小唐Tangle#$tableId]"
+
+    private fun descDailyMark(tableId: Int) = "[小唐Tangle#日课#$tableId]"
 
     private fun buildOps(events: List<EventItem>, calendarId: Long,
                          withReminder: Boolean): ArrayList<ContentProviderOperation> {
@@ -168,7 +188,13 @@ object CalendarSyncUtils {
                 put(CalendarContract.Events.DESCRIPTION, e.description)
                 put(CalendarContract.Events.EVENT_LOCATION, e.location)
                 put(CalendarContract.Events.DTSTART, e.startMillis)
-                put(CalendarContract.Events.EVENT_TIMEZONE, timeZone)
+                if (e.allDay) {
+                    // 全天日程：安卓规定必须用 UTC 时区 + 午夜边界，否则日历里日期会错位一天
+                    put(CalendarContract.Events.ALL_DAY, 1)
+                    put(CalendarContract.Events.EVENT_TIMEZONE, "UTC")
+                } else {
+                    put(CalendarContract.Events.EVENT_TIMEZONE, timeZone)
+                }
                 if (e.recurring && e.rrule != null) {
                     put(CalendarContract.Events.DURATION, e.duration)
                     put(CalendarContract.Events.RRULE, e.rrule)
@@ -180,7 +206,7 @@ object CalendarSyncUtils {
             ops.add(ContentProviderOperation.newInsert(CalendarContract.Events.CONTENT_URI)
                     .withValues(values)
                     .build())
-            if (withReminder) {
+            if (withReminder && e.remind) {
                 ops.add(ContentProviderOperation.newInsert(CalendarContract.Reminders.CONTENT_URI)
                         .withValueBackReference(CalendarContract.Reminders.EVENT_ID, eventIndex)
                         .withValue(CalendarContract.Reminders.MINUTES, REMINDER_MINUTES)
@@ -239,6 +265,86 @@ object CalendarSyncUtils {
             ))
         }
         return result
+    }
+
+    /**
+     * 生成「每日课表」：每天一条全天日程。
+     *
+     * 标题写「今日课表 · N 节」，备注里把当天每节课的「时间 课名 @教室」列出来。
+     * 这样系统日历按天看、负一屏的「日程」卡片，每天都能直接看到一整天的课，
+     * 和「一屏就是一周」的周课表正好互补。
+     */
+    private fun buildDailyItems(courseList: List<CourseBean>,
+                                timeList: List<TimeDetailBean>,
+                                maxWeek: Int,
+                                termStart: Date,
+                                tableId: Int): List<EventItem> {
+        val result = arrayListOf<EventItem>()
+        for (day in 1..7) {
+            val dayCourses = courseList.filter { it.day == day }.sortedBy { it.startNode }
+            if (dayCourses.isEmpty()) continue
+
+            // 这一天有课的周次：把所有课在这一天的周次并起来
+            val weekSet = sortedSetOf<Int>()
+            dayCourses.forEach { course ->
+                (course.startWeek..course.endWeek).forEach { week ->
+                    if (week in 1..maxWeek && course.inWeek(week)) weekSet.add(week)
+                }
+            }
+            if (weekSet.isEmpty()) continue
+
+            // 备注 = 当天每节课的「时间 课名 @教室」
+            val desc = StringBuilder(descDailyMark(tableId))
+            dayCourses.forEach { course ->
+                val start = timeList.firstOrNull { it.node == course.startNode }
+                val end = timeList.firstOrNull { it.node == course.startNode + course.step - 1 }
+                desc.append('\n')
+                if (start != null && end != null) {
+                    desc.append(start.startTime).append('-').append(end.endTime).append(' ')
+                }
+                desc.append(course.courseName)
+                course.room?.takeIf { it.isNotBlank() }?.let { desc.append(" @").append(it) }
+            }
+            val title = "今日课表 · ${dayCourses.size} 节"
+
+            splitEvenSegments(weekSet.toList()).forEach { seg ->
+                val recurring = seg.count > 1
+                result.add(EventItem(
+                        title = title,
+                        description = desc.toString(),
+                        location = "",
+                        startMillis = weekAllDayTime(termStart, seg.firstWeek, day, 0),
+                        endMillis = weekAllDayTime(termStart, seg.firstWeek, day, 1),
+                        recurring = recurring,
+                        duration = "P1D",
+                        rrule = if (recurring) buildRRule(seg.interval, seg.count) else null,
+                        allDay = true,
+                        remind = false
+                ))
+            }
+        }
+        return result
+    }
+
+    /**
+     * 第 week 周、星期 day 的「全天」时刻（offsetDay：0 = 当天，1 = 次日）。
+     *
+     * 安卓规定全天日程要用 UTC 时区 + 午夜边界，所以这里取「本地看到的那个日期」的 UTC 零点。
+     */
+    private fun weekAllDayTime(termStart: Date, week: Int, day: Int, offsetDay: Int): Long {
+        val local = Calendar.getInstance()
+        local.time = termStart
+        local.set(Calendar.HOUR_OF_DAY, 0)
+        local.set(Calendar.MINUTE, 0)
+        local.set(Calendar.SECOND, 0)
+        local.set(Calendar.MILLISECOND, 0)
+        local.add(Calendar.DAY_OF_MONTH, (week - 1) * 7 + (day - 1) + offsetDay)
+
+        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        utc.clear()
+        utc.set(local.get(Calendar.YEAR), local.get(Calendar.MONTH),
+                local.get(Calendar.DAY_OF_MONTH), 0, 0, 0)
+        return utc.timeInMillis
     }
 
     /**

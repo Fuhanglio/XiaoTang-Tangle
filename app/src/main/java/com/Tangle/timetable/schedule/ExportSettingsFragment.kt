@@ -161,8 +161,9 @@ class ExportSettingsFragment : BaseDialogFragment() {
         MaterialAlertDialogBuilder(act)
                 .setTitle("同步好啦")
                 .setMessage("已经把「$tableName」的 $count 条日程写进「${target.displayName}」。\n\n" +
-                        "打开系统日历就能看到，负一屏或桌面的「日历」卡片也读得到。\n" +
-                        "每节课会提前 15 分钟提醒。\n" +
+                        "· 每节课一条，提前 15 分钟提醒；\n" +
+                        "· 每天一条「今日课表」，这天几节课、都是什么，一眼看到。\n\n" +
+                        "打开系统日历，或者负一屏 / 桌面的「日历」「日程」卡片都能看到。\n" +
                         "以后改完课表再点一次这里就行，会自动覆盖上一次，不会重复。")
                 .setNegativeButton("知道了", null)
                 .setPositiveButton("打开日历") { _, _ -> openCalendar(act) }
