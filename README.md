@@ -4,6 +4,8 @@
 
 ### 这个版本改了什么
 
+**当前版本：v117 / 3.648**（2026-09-12）
+
 | 方向 | 内容 |
 | --- | --- |
 | 桌面小部件 | 今日课程卡、周课表卡、下一节课卡三个部件全部重做：去掉位图方案、高度自适应、玻璃卡外观、空态短句 |
@@ -12,6 +14,15 @@
 | 贴心功能 | 生日提醒板块（今天课上完后出现在今日卡底部）、课程预告范围设置 |
 
 完整的版本演进、每一版做了什么、踩过哪些坑，见 [CHANGELOG.md](CHANGELOG.md)。
+
+### 下载
+
+安装包放在 [Releases](https://github.com/Fuhanglio/XiaoTang-Tangle/releases) 里，每个版本一个 APK：
+
+- [**最新版（v117 / 3.648）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
+- [全部历史版本](https://github.com/Fuhanglio/XiaoTang-Tangle/releases)
+
+安装前需在「设置 → 关于本机」里连点版本号开启开发者选项，并允许安装未知来源应用。若已装过旧版，直接覆盖安装即可，课表数据不会丢。
 
 ### 来源与声明
 
