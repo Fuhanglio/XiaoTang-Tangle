@@ -1,4 +1,5 @@
 package com.Tangle.timetable.utils
+import android.util.Log
 
 import android.content.Context
 import androidx.core.content.edit
@@ -8,6 +9,8 @@ import com.Tangle.timetable.bean.TimeDetailBean
 import com.Tangle.timetable.bean.TimeTableBean
 
 object UpdateUtils {
+
+    private const val TAG = "UpdateUtils"
 
     @Throws(Exception::class)
     fun getVersionCode(context: Context): Int {
@@ -129,7 +132,7 @@ object UpdateUtils {
                     putBoolean(Const.KEY_HAS_ADJUST, true)
                 }
             } catch (e: Exception) {
-
+                Log.e(TAG, "老版本数据迁移失败", e)
             }
 
         }
@@ -179,11 +182,11 @@ object UpdateUtils {
             try {
                 timeDao.insertTimeList(timeList)
                 tableDao.insertTable(tableData)
+                context.getPrefer().edit {
+                    putBoolean(Const.KEY_HAS_ADJUST, true)
+                }
             } catch (e: Exception) {
-
-            }
-            context.getPrefer().edit {
-                putBoolean(Const.KEY_HAS_ADJUST, true)
+                Log.e(TAG, "初始化默认课表失败", e)
             }
         }
     }

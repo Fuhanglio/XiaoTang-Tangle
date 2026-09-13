@@ -1,5 +1,7 @@
 package com.Tangle.timetable.widget
 
+import android.util.Log
+
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -58,7 +60,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                 try {
                     context.startActivity(open)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e(TAG, "Widget error", e)
                 }
             }
         }
@@ -73,7 +75,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
 
             val openIntent = Intent(context, SplashActivity::class.java)
             val openPi = PendingIntent.getActivity(context, 9000 + index, openIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT)
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             val notification = NotificationCompat.Builder(context, "schedule_reminder")
@@ -93,11 +95,12 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                     .build()
             nm.notify(9000 + index, notification)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Widget error", e)
         }
     }
 
     companion object {
+        private const val TAG = "WidgetUpdateReceiver"
         /** 刷新全部类型的小部件（周课表 / 今日课程 / 下一节课） */
         fun refreshAllWidgets(context: Context) {
             try {
@@ -105,14 +108,18 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                 val db = AppDatabase.getDatabase(context)
                 val widgetDao = db.appWidgetDao()
                 val tableDao = db.tableDao()
-                val table = tableDao.getDefaultTableSync() ?: return
+                val defaultTable = tableDao.getDefaultTableSync()
 
                 // 今日课程：按组件名找全部实例，不依赖数据库登记
-                awm.getAppWidgetIds(ComponentName(context, TodayCourseAppWidget::class.java))
-                        .forEach { id -> AppWidgetUtils.refreshTodayWidget(context, awm, id, table) }
+                defaultTable?.let { table ->
+                    awm.getAppWidgetIds(ComponentName(context, TodayCourseAppWidget::class.java))
+                            .forEach { id -> AppWidgetUtils.refreshTodayWidget(context, awm, id, table) }
+                }
                 // 周课表：DB 里登记的实例各自可能绑定不同课表，按登记信息取表
                 for (w in widgetDao.getWidgetsByTypesSync(0, 0)) {
-                    AppWidgetUtils.refreshScheduleWidget(context, awm, w.id, table)
+                    val t = if (w.info.isEmpty()) defaultTable
+                            else tableDao.getTableByIdSync(w.info.toIntOrNull() ?: -1)
+                    if (t != null) AppWidgetUtils.refreshScheduleWidget(context, awm, w.id, t)
                 }
                 // 下一节课（按组件名找全部实例，无需登记 DB）
                 val nextIds = awm.getAppWidgetIds(ComponentName(context, NextCourseAppWidget::class.java))
@@ -122,8 +129,10 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                 // 说明：今日课程与周课表小部件都已改成静态行布局，没有 AdapterView，
                 // 因此这里不再需要 notifyAppWidgetViewDataChanged。
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Widget error", e)
             }
         }
     }
 }
+
+

@@ -113,7 +113,7 @@ object WidgetScheduler {
             putExtra("index", index)
         }
         val pi = PendingIntent.getBroadcast(
-                context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+                context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         if (canScheduleExact(context)) {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
         } else {
@@ -130,3 +130,4 @@ object WidgetScheduler {
                 WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 }
+

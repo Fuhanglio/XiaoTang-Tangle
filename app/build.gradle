@@ -56,8 +56,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 29
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 123
-        versionName "3.654"
+        versionCode 129
+        versionName "3.660"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         packagingOptions {
@@ -195,3 +195,9 @@ dependencies {
     // jar 由上面的 fileTree(include: ['*.jar'], dir: 'libs') 自动引入，无需单独声明。
     // 升级该库时注意：仍要保证字节码不超过 Java 8。
 }
+
+
+
+
+
+

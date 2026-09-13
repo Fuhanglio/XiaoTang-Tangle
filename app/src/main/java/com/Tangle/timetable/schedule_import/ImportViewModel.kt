@@ -689,11 +689,13 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
 
     suspend fun importFromFile(uri: Uri?) {
         if (uri == null) throw Exception("读取文件失败")
-        if (!uri.path!!.contains("wakeup_schedule")) throw Exception("请确保文件类型正确")
+        if (uri.path?.contains("wakeup_schedule") != true) throw Exception("请确保文件类型正确")
         val gson = Gson()
         val list = withContext(Dispatchers.IO) {
-            getApplication<App>().contentResolver.openInputStream(uri)!!.bufferedReader().readLines()
+            getApplication<App>().contentResolver.openInputStream(uri)?.use { it.bufferedReader().readLines() }
+                ?: throw Exception("读取文件失败")
         }
+        if (list.size < 5) throw Exception("文件格式不正确，请确认是 wakeup_schedule 导出的课程文件")
         val timeTable = gson.fromJson<TimeTableBean>(list[0], object : TypeToken<TimeTableBean>() {}.type)
         val timeDetails = gson.fromJson<List<TimeDetailBean>>(list[1], object : TypeToken<List<TimeDetailBean>>() {}.type)
         val table = gson.fromJson<TableBean>(list[2], object : TypeToken<TableBean>() {}.type)
@@ -781,3 +783,4 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
     }
 
 }
+

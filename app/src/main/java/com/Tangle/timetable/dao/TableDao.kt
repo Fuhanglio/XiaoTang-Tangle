@@ -38,10 +38,10 @@ interface TableDao {
     suspend fun getDefaultTableId(): Int
 
     @Query("select * from tablebean where type = 1")
-    suspend fun getDefaultTable(): TableBean
+    suspend fun getDefaultTable(): TableBean?
 
     @Query("select * from tablebean where type = 1")
-    fun getDefaultTableSync(): TableBean
+    fun getDefaultTableSync(): TableBean?
 
     @Query("select id, tableName, background, maxWeek, nodes, type from tablebean")
     fun getTableSelectListLiveData(): LiveData<List<TableSelectBean>>
@@ -55,3 +55,4 @@ interface TableDao {
     @Query("delete from coursebasebean where tableId = :id")
     suspend fun clearTable(id: Int)
 }
+

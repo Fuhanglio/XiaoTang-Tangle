@@ -185,26 +185,19 @@ object CourseUtils {
     }
 
     fun calAfterTime(time: String, min: Int): String {
-        val timeHour = Integer.valueOf(time.substring(0, 2))
-        val timeMin = Integer.valueOf(time.substring(3, 5))
+        if (time.length < 5) return time
+        val timeHour = time.substring(0, 2).toIntOrNull() ?: return time
+        val timeMin = time.substring(3, 5).toIntOrNull() ?: return time
         val add = timeMin + min
         var newHour = timeHour + add / 60
-        var newMin = add % 60
-        var strTime = ""
-        if (newHour > 23) {
-            newHour = 0
-            newMin = 0
+        val newMin = add % 60
+        if (newHour >= 24) newHour -= 24
+        return when {
+            newHour < 10 && newMin >= 10 -> "0$newHour:$newMin"
+            newHour < 10 && newMin < 10 -> "0$newHour:0$newMin"
+            newHour >= 10 && newMin < 10 -> "$newHour:0$newMin"
+            else -> "$newHour:$newMin"
         }
-        if (newHour < 10 && newMin >= 10) {
-            strTime = "0$newHour:$newMin"
-        } else if (newHour < 10 && newMin < 10) {
-            strTime = "0$newHour:0$newMin"
-        } else if (newHour >= 10 && newMin >= 10) {
-            strTime = "$newHour:$newMin"
-        } else if (newHour >= 10 && newMin < 10) {
-            strTime = "$newHour:0$newMin"
-        }
-        return strTime
     }
 
     fun getDateStringFromWeek(curWeek: Int, targetWeek: Int, sundayFirst: Boolean): List<String> {

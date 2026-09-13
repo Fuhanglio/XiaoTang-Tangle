@@ -37,9 +37,9 @@ class TodayCourseAppWidget : AppWidgetProvider() {
                 var room = intent.getStringExtra("room")
                 val time = intent.getStringExtra("time")
                 val weekDay = intent.getStringExtra("weekDay")
-                val index = intent.getIntExtra("index", 0)
+                val index = intent.getIntExtra("index", PendingIntent.FLAG_IMMUTABLE)
 
-                if (room == "") {
+                if (room.isNullOrEmpty()) {
                     room = "未知"
                 }
 
@@ -49,10 +49,10 @@ class TodayCourseAppWidget : AppWidgetProvider() {
                     action = "WAKEUP_CANCEL_REMINDER"
                     putExtra("index", index)
                 }
-                val cancelPendingIntent: PendingIntent = PendingIntent.getBroadcast(context, index, cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+                val cancelPendingIntent: PendingIntent = PendingIntent.getBroadcast(context, index, cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
                 val openIntent = Intent(context, SplashActivity::class.java)
-                val openPendingIntent: PendingIntent = PendingIntent.getActivity(context, 0, openIntent, 0)
+                val openPendingIntent: PendingIntent = PendingIntent.getActivity(context, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
 
                 val notification = NotificationCompat.Builder(context, "schedule_reminder")
                         .setContentTitle("$time $courseName")
@@ -65,7 +65,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
                         .setPriority(NotificationCompat.PRIORITY_MAX)
                         .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
                         .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
-                        .setVibrate(longArrayOf(0, 5000, 500, 5000))
+                        .setVibrate(longArrayOf(0, 300, 200, 300))
                         .addAction(R.drawable.wakeup, "记得给手机静音哦", cancelPendingIntent)
                         .addAction(R.drawable.wakeup, "我知道啦", cancelPendingIntent)
                         .setContentIntent(openPendingIntent)
@@ -76,7 +76,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
             val tableDao = AppDatabase.getDatabase(context).tableDao()
             val awm = AppWidgetManager.getInstance(context)
             goAsync {
-                val table = tableDao.getDefaultTable()
+                val table = tableDao.getDefaultTable() ?: return@goAsync
                 for (id in awm.getAppWidgetIds(ComponentName(context, TodayCourseAppWidget::class.java))) {
                     // 手动临时查看明日（下一次闹钟/每日重算刷新会回到智能模式）
                     AppWidgetUtils.refreshTodayWidget(context, awm, id, table, true, manual = true)
@@ -87,7 +87,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
             val tableDao = AppDatabase.getDatabase(context).tableDao()
             val awm = AppWidgetManager.getInstance(context)
             goAsync {
-                val table = tableDao.getDefaultTable()
+                val table = tableDao.getDefaultTable() ?: return@goAsync
                 for (id in awm.getAppWidgetIds(ComponentName(context, TodayCourseAppWidget::class.java))) {
                     // 手动临时回到今日（下一次闹钟/每日重算刷新会回到智能模式）
                     AppWidgetUtils.refreshTodayWidget(context, awm, id, table, false, manual = true)
@@ -96,7 +96,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
         }
         if (intent.action == "WAKEUP_CANCEL_REMINDER") {
             val manager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            manager.cancel(intent.getIntExtra("index", 0))
+            manager.cancel(intent.getIntExtra("index", PendingIntent.FLAG_IMMUTABLE))
         }
         super.onReceive(context, intent)
     }
@@ -108,7 +108,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
         val tableDao = dataBase.tableDao()
 
         goAsync {
-            val table = tableDao.getDefaultTable()
+            val table = tableDao.getDefaultTable() ?: return@goAsync
             // 以系统给的实例 id 为准刷新，不再依赖数据库登记。
             // （今日小部件没有配置页，历史实现因此从未被登记，导致卡片一直停在布局的默认文案上）
             for (id in appWidgetIds) {
@@ -131,4 +131,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
         }
     }
 }
+
+
+
 

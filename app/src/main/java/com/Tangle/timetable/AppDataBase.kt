@@ -100,6 +100,7 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("DROP TABLE TimeDetailBean_old;")
                 database.execSQL("ALTER TABLE TimeTableBean ADD COLUMN sameLen INTEGER NOT NULL DEFAULT 1;")
                 database.execSQL("ALTER TABLE TimeTableBean ADD COLUMN courseLen INTEGER NOT NULL DEFAULT 50;")
+                database.execSQL("UPDATE tablebean SET type=1 WHERE id=(SELECT MIN(id) FROM tablebean)")
             }
         }
     }
@@ -114,3 +115,4 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun tableDao(): TableDao
 }
+

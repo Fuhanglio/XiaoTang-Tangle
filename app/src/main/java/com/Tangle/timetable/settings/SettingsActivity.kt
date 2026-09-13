@@ -270,7 +270,7 @@ class SettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDial
                             }
                         }
                         .setSingleChoiceItems(dayNightTheme, dayNightIndex) { _, which ->
-                            dayNightIndex = which
+                            dayNightIndex = which.coerceIn(0, dayNightTheme.size - 1)
                         }
                         .show()
             }
@@ -351,3 +351,4 @@ class SettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDial
         super.onDestroy()
     }
 }
+

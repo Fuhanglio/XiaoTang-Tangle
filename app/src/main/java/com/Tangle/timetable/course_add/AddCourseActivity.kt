@@ -88,22 +88,25 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
         super.onCreate(savedInstanceState)
         // iOS 风：页面底色改为浅灰 #F2F2F7，内容以白色圆角卡片呈现
         rootView.setBackgroundColor(0xFFF2F2F7.toInt())
-        if (intent.extras!!.getInt("id") == -1) {
-            viewModel.tableId = intent.extras!!.getInt("tableId")
-            viewModel.maxWeek = intent.extras!!.getInt("maxWeek")
-            viewModel.nodes = intent.extras!!.getInt("nodes")
+        val extras = intent.extras ?: run {
+            Toasty.error(this, "参数缺失，请从课表页重新进入").show()
+            finish()
+            return
+        }
+        val courseId = extras.getInt("id", -1)
+        viewModel.tableId = extras.getInt("tableId", -1)
+        viewModel.maxWeek = extras.getInt("maxWeek", 20)
+        viewModel.nodes = extras.getInt("nodes", 10)
+        if (courseId == -1) {
             adapter = AddCourseAdapter(R.layout.item_add_course_detail, viewModel.initData(viewModel.maxWeek))
             initAdapter(viewModel.baseBean)
         } else {
-            viewModel.tableId = intent.extras!!.getInt("tableId")
-            viewModel.maxWeek = intent.extras!!.getInt("maxWeek")
-            viewModel.nodes = intent.extras!!.getInt("nodes")
             launch {
-                val detailList = viewModel.initData(intent.extras!!.getInt("id"), viewModel.tableId)
+                val detailList = viewModel.initData(courseId, viewModel.tableId)
                 detailList.forEach {
                     viewModel.editList.add(CourseUtils.detailBean2EditBean(it))
                 }
-                val courseBaseBean = viewModel.initBaseData(intent.extras!!.getInt("id"))
+                val courseBaseBean = viewModel.initBaseData(courseId)
                 viewModel.baseBean.id = courseBaseBean.id
                 viewModel.baseBean.color = courseBaseBean.color
                 viewModel.baseBean.courseName = courseBaseBean.courseName

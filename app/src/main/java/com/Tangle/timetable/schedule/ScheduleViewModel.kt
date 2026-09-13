@@ -26,6 +26,9 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
+private const val TAG = "ScheduleViewModel"
+
+
 class ScheduleViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataBase = AppDatabase.getDatabase(application)
@@ -51,12 +54,12 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun getMultiCourse(week: Int, day: Int, startNode: Int): List<CourseBean> {
-        return allCourseList[day - 1].value!!.filter {
+        return allCourseList.getOrNull(day - 1)?.value?.filter {
             it.inWeek(week) && it.startNode == startNode
-        }
+        } ?: emptyList()
     }
 
-    suspend fun getDefaultTable(): TableBean {
+    suspend fun getDefaultTable(): TableBean? {
         return tableDao.getDefaultTable()
     }
 
@@ -100,12 +103,7 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         val gson = Gson()
         val list = gson.fromJson<List<CourseOldBean>>(json, object : TypeToken<List<CourseOldBean>>() {
         }.type)
-        val lastId = tableDao.getLastId()
-        val tableId = if (lastId != null) {
-            lastId + 1
-        } else {
-            1
-        }
+        val tableId = tableDao.getDefaultTableSync()?.id ?: return
         oldBean2CourseBean(list, tableId)
     }
 
@@ -169,8 +167,8 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
                 it.value?.forEach { course ->
                     try {
                         ICalUtils.getClassEvents(ical, startTimeMap, endTimeMap, table.maxWeek, course, date)
-                    } catch (ignored: Exception) {
-
+                    } catch (e: Exception) {
+                        Log.e(TAG, "导入ICS时跳过一节课", e)
                     }
                 }
             }
@@ -183,3 +181,7 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         }
     }
 }
+
+
+
+

@@ -1,4 +1,5 @@
 package com.Tangle.timetable.widget
+import android.util.Log
 
 import android.content.Context
 import com.Tangle.timetable.AppDatabase
@@ -16,6 +17,7 @@ import java.util.Calendar
  * 上课/下课时间戳、距下一节课分钟数等。全部使用同步 DAO，可在 Receiver/Service 中调用。
  */
 object WidgetData {
+    private const val TAG = "WidgetData"
 
     const val STATUS_FINISHED = 0
     const val STATUS_ONGOING = 1
@@ -53,7 +55,7 @@ object WidgetData {
     fun getCoursesForOffset(context: Context, dayOffset: Int, table: TableBean? = null): List<Item> {
         return try {
             val db = AppDatabase.getDatabase(context)
-            val t: TableBean = table ?: db.tableDao().getDefaultTableSync()
+            val t: TableBean = table ?: db.tableDao().getDefaultTableSync() ?: return emptyList()
             val week = weekForOffset(context, dayOffset, t)
             // 周次越界：直接返回空，不再查数据库
             if (week <= 0 || week > t.maxWeek) return emptyList()
@@ -73,8 +75,8 @@ object WidgetData {
                 val endNode = (startNode + c.step - 1).coerceAtMost(times.size)
                 val start = times[startNode - 1].startTime
                 val end = times[endNode - 1].endTime
-                val startMillis = timeToMillis(start, dayOffset)
-                val endMillis = timeToMillis(end, dayOffset)
+                val startMillis = timeToMillis(start, dayOffset) ?: run { Log.w(TAG, "无法解析时间: $start"); return@mapNotNull null }
+                val endMillis = timeToMillis(end, dayOffset) ?: run { Log.w(TAG, "无法解析时间: $end"); return@mapNotNull null }
                 val status = when {
                     now >= endMillis -> STATUS_FINISHED
                     now in startMillis..endMillis -> STATUS_ONGOING
@@ -88,7 +90,7 @@ object WidgetData {
                         endText = end,
                         startNode = startNode,
                         step = c.step,
-                        color = if (c.color.isEmpty()) "#5D4037" else c.color,
+                        color = if (c.color.isEmpty()) "#007AFF" else c.color,
                         startMillis = startMillis,
                         endMillis = endMillis,
                         status = if (future) STATUS_UPCOMING else status,
@@ -327,7 +329,7 @@ object WidgetData {
                         dateText = "${months[idx]}.${dayNumbers[idx]}",
                         courses = courses.joinToString("、") { it.courseName },
                         color = courses.firstOrNull()?.let {
-                            if (it.color.isEmpty()) "#5D4037" else it.color
+                            if (it.color.isEmpty()) "#007AFF" else it.color
                         } ?: "",
                         isToday = d == todayIndex
                 ))
@@ -362,7 +364,7 @@ object WidgetData {
     }
 
     /** hhmm 转成「距今 dayOffset 天」那天的毫秒时间戳 */
-    private fun timeToMillis(hhmm: String, dayOffset: Int): Long {
+    private fun timeToMillis(hhmm: String, dayOffset: Int): Long? {
         return try {
             val parts = hhmm.split(":")
             val cal = Calendar.getInstance()
@@ -373,8 +375,16 @@ object WidgetData {
             cal.set(Calendar.MILLISECOND, 0)
             cal.timeInMillis
         } catch (e: Exception) {
-            0L
+            null
         }
     }
 }
+
+
+
+
+
+
+
+
 

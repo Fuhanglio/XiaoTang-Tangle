@@ -45,7 +45,7 @@ class LoginWebActivity : BaseActivity() {
                 if (viewModel.importType.isNullOrEmpty() || viewModel.school.isNullOrEmpty()) {
                     null
                 } else {
-                    WebViewLoginFragment.newInstance(intent.getStringExtra("url")!!)
+                    WebViewLoginFragment.newInstance(intent.getStringExtra("url") ?: "")
                 }
             }
         }
@@ -63,6 +63,17 @@ class LoginWebActivity : BaseActivity() {
                 viewModel.importId = viewModel.getNewId()
                 viewModel.newFlag = true
                 val uri = intent.data
+                if (uri == null) {
+                    Toasty.error(this@LoginWebActivity, "导入参数缺失").show()
+                    finish()
+                    return@launch
+                }
+                val scheme = uri.scheme?.toLowerCase()
+                if (scheme !in listOf("content", "file", "http", "https")) {
+                    Toasty.error(this@LoginWebActivity, "非法的导入来源").show()
+                    finish()
+                    return@launch
+                }
                 val path = uri?.path ?: ""
                 val type = when {
                     path.contains("wakeup_schedule") -> "file"
@@ -153,3 +164,5 @@ class LoginWebActivity : BaseActivity() {
     }
 
 }
+
+

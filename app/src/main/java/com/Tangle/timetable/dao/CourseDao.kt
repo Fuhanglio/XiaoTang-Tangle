@@ -36,6 +36,7 @@ interface CourseDao {
 
     @Transaction
     suspend fun coverImport(courseBaseList: List<CourseBaseBean>, courseDetailList: List<CourseDetailBean>) {
+        if (courseBaseList.isEmpty() || courseDetailList.isEmpty()) return
         removeCourseBaseBeanOfTable(courseBaseList[0].tableId)
         insertBaseList(courseBaseList)
         insertDetailList(courseDetailList)

@@ -296,7 +296,7 @@ class NewZFParser(source: String) : Parser(source) {
             val firstRow = table.selectFirst("tr") ?: continue
             val headerText = firstRow.text()
             val hasNodeHeader = headerText.contains("节次") || headerText.contains("节 / 星期")
-            val hasWeekdayHeader = headerText.contains("星期") || headerText.contains("周一") || headerText.contains("周一")
+            val hasWeekdayHeader = headerText.contains("星期") || headerText.contains("周一") || headerText.contains("周日")
             if (hasNodeHeader && hasWeekdayHeader) return table
         }
         return null
@@ -769,3 +769,4 @@ class NewZFParser(source: String) : Parser(source) {
         return result
     }
 }
+

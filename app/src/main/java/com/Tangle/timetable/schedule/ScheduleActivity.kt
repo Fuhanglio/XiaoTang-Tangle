@@ -58,6 +58,7 @@ class ScheduleActivity : BaseActivity() {
     private var mAdapter: SchedulePagerAdapter? = null
 
     private lateinit var ui: ScheduleActivityUI
+    private var courseObserversRegistered = false
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
     private val preLoad by lazy(LazyThreadSafetyMode.NONE) {
@@ -205,7 +206,7 @@ class ScheduleActivity : BaseActivity() {
                         viewModel.changeDefaultTable(data[position].id)
                         initView()
                         val list = viewModel.getScheduleWidgetIds()
-                        val table = viewModel.getDefaultTable()
+                        val table = viewModel.getDefaultTable() ?: return@launch
                         list.forEach {
                             when (it.detailType) {
                                 1 -> AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, it.id, table)
@@ -431,6 +432,7 @@ class ScheduleActivity : BaseActivity() {
     }
 
     private fun initEvent() {
+    ui.viewPager.clearOnPageChangeListeners()
         ui.addBtn.setOnClickListener {
             start<AddCourseActivity> {
                 putExtra("tableId", viewModel.table.id)
@@ -482,7 +484,7 @@ class ScheduleActivity : BaseActivity() {
         ui.viewPager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
 
             override fun onPageSelected(position: Int) {
-                viewModel.selectedWeek = position + 1
+                viewModel.selectedWeek = (position + 1).coerceIn(1, viewModel.table.maxWeek)
                 // 滑动切页时同步高亮对应周数胶囊
                 ui.selectWeekButton(viewModel.selectedWeek)
                 try {
@@ -521,7 +523,7 @@ class ScheduleActivity : BaseActivity() {
 
     private fun initView() {
         launch {
-            viewModel.table = viewModel.getDefaultTable()
+            viewModel.table = viewModel.getDefaultTable() ?: return@launch
             // 渲染前统一应用主题颜色（主题系统为单一数据源）
             ThemeManager.applyToTable(this@ScheduleActivity, viewModel.table)
             viewModel.currentWeek = CourseUtils.countWeek(viewModel.table.startDate, viewModel.table.sundayFirst)
@@ -568,12 +570,15 @@ class ScheduleActivity : BaseActivity() {
 
             initEvent()
 
-            for (i in 1..7) {
-                viewModel.getRawCourseByDay(i, viewModel.table.id).observe(this@ScheduleActivity, Observer { list ->
-                    if (list == null) return@Observer
-                    if (list.isNotEmpty() && list[0].tableId != viewModel.table.id) return@Observer
-                    viewModel.allCourseList[i - 1].value = list
-                })
+            if (!courseObserversRegistered) {
+                courseObserversRegistered = true
+                for (i in 1..7) {
+                    viewModel.getRawCourseByDay(i, viewModel.table.id).observe(this@ScheduleActivity, Observer { list ->
+                        if (list == null) return@Observer
+                        if (list.isNotEmpty() && list[0].tableId != viewModel.table.id) return@Observer
+                        viewModel.allCourseList[i - 1].value = list
+                    })
+                }
             }
         }
     }
@@ -669,3 +674,6 @@ class ScheduleActivity : BaseActivity() {
     }
 
 }
+
+
+

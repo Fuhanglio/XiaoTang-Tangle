@@ -12,7 +12,7 @@ class WeekScheduleAppWidgetConfigViewModel(application: Application) : AndroidVi
     private val tableDao = dataBase.tableDao()
     private val widgetDao = dataBase.appWidgetDao()
 
-    suspend fun getDefaultTable(): TableBean {
+    suspend fun getDefaultTable(): TableBean? {
         return tableDao.getDefaultTable()
     }
 

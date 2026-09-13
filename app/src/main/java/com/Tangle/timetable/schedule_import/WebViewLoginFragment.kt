@@ -52,9 +52,7 @@ class WebViewLoginFragment : BaseFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        arguments?.let {
-            url = it.getString("url")!!
-        }
+        arguments?.getString("url")?.let { url = it }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
@@ -135,20 +133,20 @@ class WebViewLoginFragment : BaseFragment() {
             }
 
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-                if (BuildConfig.CHANNEL != "google") {
-                    handler.proceed() //接受所有网站的证书
-                    return
+                handler.cancel() // 默认拒绝所有证书有风险的连接
+                activity?.let { act ->
+                    MaterialAlertDialogBuilder(act)
+                            .setTitle("安全提醒")
+                            .setMessage("该网站证书存在风险，可能被窃听，是否仍要继续？")
+                            .setPositiveButton("继续") { _, _ ->
+                                handler.proceed()
+                            }
+                            .setNegativeButton("取消") { _, _ ->
+                                handler.cancel()
+                            }
+                            .setCancelable(false)
+                            .show()
                 }
-                MaterialAlertDialogBuilder(activity)
-                        .setMessage("SSL证书验证失败")
-                        .setPositiveButton("继续浏览") { _, _ ->
-                            handler.proceed()
-                        }
-                        .setNegativeButton("取消") { _, _ ->
-                            handler.cancel()
-                        }
-                        .setCancelable(false)
-                        .show()
             }
 
         }
@@ -466,11 +464,10 @@ class WebViewLoginFragment : BaseFragment() {
     }
 
     private fun getHostUrl(): String {
-        var url = wv_course.url
-        if (!url.endsWith('/')) {
-            url += "/"
-        }
-        return hostRegex.find(wv_course.url)?.value ?: wv_course.url
+        val rawUrl = wv_course.url ?: et_url.text?.toString() ?: ""
+        if (rawUrl.isEmpty()) return ""
+        val withSlash = if (rawUrl.endsWith('/')) rawUrl else rawUrl + "/"
+        return hostRegex.find(withSlash)?.value ?: withSlash
     }
 
     private fun startVisit() {
@@ -565,3 +562,4 @@ class WebViewLoginFragment : BaseFragment() {
 })()"""
     }
 }
+

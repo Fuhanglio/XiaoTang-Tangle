@@ -87,6 +87,7 @@ class ColorWheelView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         val g = geom()
         val cx = g[0]; val cy = g[1]; val outerR = g[2]; val ringW = g[3]; val innerR = g[4]
+        if (width <= 0 || height <= 0 || innerR <= 0f) return
 
         drawHueRing(canvas, cx, cy, outerR, ringW)
         drawSvDisc(canvas, cx, cy, innerR)
@@ -110,6 +111,7 @@ class ColorWheelView @JvmOverloads constructor(
     private fun drawSvDisc(canvas: Canvas, cx: Float, cy: Float, innerR: Float) {
         if (discCache == null || cachedHue != hue) {
             val size = (innerR * 2).toInt()
+        if (size <= 0) return
             val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val c = Canvas(bmp)
             val pure = Color.HSVToColor(floatArrayOf(hue, 1f, 1f))
@@ -191,6 +193,7 @@ class ColorWheelView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val g = geom()
         val cx = g[0]; val cy = g[1]; val outerR = g[2]; val ringW = g[3]; val innerR = g[4]
+        if (width <= 0 || height <= 0 || innerR <= 0f) return super.onTouchEvent(event)
         val dx = event.x - cx
         val dy = event.y - cy
         val dist = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()

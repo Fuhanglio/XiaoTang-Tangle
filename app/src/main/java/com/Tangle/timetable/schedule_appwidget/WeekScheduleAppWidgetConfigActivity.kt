@@ -87,7 +87,7 @@ class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {
             launch {
                 // Log.d("包名", appWidgetManager.getAppWidgetInfo(mAppWidgetId).provider.shortClassName)
                 viewModel.insertWeekAppWidgetData(AppWidgetBean(mAppWidgetId, 0, 1, ""))
-                val table = viewModel.getDefaultTable()
+                val table = viewModel.getDefaultTable() ?: return@launch ?: return@launch
                 AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, mAppWidgetId, table)
                 val resultValue = Intent()
                 resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
@@ -106,3 +106,6 @@ class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {
                 })
     }
 }
+
+
+
