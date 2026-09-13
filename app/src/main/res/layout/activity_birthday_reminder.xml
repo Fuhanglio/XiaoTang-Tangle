@@ -33,10 +33,16 @@
             android:textSize="12sp"
             android:textColor="#8E8E93" />
 
+        <!-- ⚠️ 这排滑轮必须有 id：代码里要把「它所在的整条横向区域」从系统边缘返回手势的
+             判定区里排除掉，否则从左缘起手拨动左边的「月」滑轮，会被判成返回、直接退出本页。
+             paddingStart/End 是给老系统（API<29 没有 exclusion API）的兜底：让滑轮离屏幕左右缘远一点。 -->
         <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/ll_pickers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:gravity="center"
             android:orientation="horizontal">
 
