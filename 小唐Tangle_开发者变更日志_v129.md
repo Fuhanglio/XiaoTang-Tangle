@@ -241,3 +241,14 @@
 - **网络安全**：兼容数百所仅支持 http 的老旧教务系统，network_security_config.xml 保持 cleartextTrafficPermitted="true"；茅台学院校内会重定向到内网 IP，禁明文会导致导入大面积失败。
 - **无广告 · 无付费 · 无统计上报**：已删除原版 Microsoft AppCenter SDK 和作者自建后端相关代码。
 - **许可证**：沿用原版开源协议（MIT），二次开发部分同协议。
+
+---
+
+## 🚀 发布记录
+
+- **v3.660 (versionCode 129)** — 2026-09-12 发布
+  - Tag：`v129`，基于提交 `e7474f3`（main）
+  - Release 页：https://github.com/Fuhanglio/XiaoTang-Tangle/releases/tag/v129
+  - 产物：`XiaoTangTangle-v129-3.660.apk`（约 14.3MB，normal debug，签名 SHA1 `4E:FA:65:D0:…:4F:B4`）
+  - 本次为 v124~v129 一次性收口：端到端代码审查发现的稳定性 / 安全项全部落地（详见上方各版本条目）
+  - 提交信息：v129 / 3.660 端到端代码审查修复 + 开发者日志补全（22 文件，含新增开发者变更日志）
