@@ -152,17 +152,28 @@ class ImageImportFragment : BaseFragment() {
 
     /* ------------------------------------------------------------------ */
 
+    /**
+     * 列识别结果：每门课两行。
+     * 第一行是「序号 + 课名」，课名过长会截断加省略号；第二行缩进放星期 / 节次 / 周次 / 教室。
+     * 之前所有信息挤在一行，课名一长整行就被撑爆、后面的信息被挤到看不见。
+     */
     private fun renderResult() {
         val sb = StringBuilder()
         recognized.forEachIndexed { index, course ->
-            sb.append(index + 1).append(". ").append(course.name)
-            sb.append("  ").append(dayName(course.day))
-            sb.append(" 第").append(course.startNode).append("-").append(course.endNode).append("节")
+            sb.append(index + 1).append(". ").append(shortName(course.name)).append('\n')
+            sb.append("      ").append(dayName(course.day))
+            sb.append(" 第").append(course.startNode).append('-').append(course.endNode).append("节")
             sb.append("  ").append(weekText(course))
-            if (course.room.isNotEmpty()) sb.append("  ").append(course.room)
+            if (course.room.isNotEmpty()) sb.append("  @").append(course.room)
             if (index != recognized.size - 1) sb.append('\n')
         }
         tv_result.text = sb.toString()
+    }
+
+    /** 预览列表里的课名限长，超出用省略号；避免一行被超长课名撑爆 */
+    private fun shortName(name: String): String {
+        val limit = 14
+        return if (name.length <= limit) name else name.substring(0, limit) + "…"
     }
 
     private fun dayName(day: Int): String {

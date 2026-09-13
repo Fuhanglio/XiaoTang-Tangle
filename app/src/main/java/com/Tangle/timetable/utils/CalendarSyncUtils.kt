@@ -3,6 +3,7 @@ package com.Tangle.timetable.utils
 import android.Manifest
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
@@ -41,6 +42,10 @@ object CalendarSyncUtils {
 
     /** 提前多少分钟提醒上课 */
     private const val REMINDER_MINUTES = 15
+
+    /** 查不到任何可写日历时，自动创建的本地日历（会出现在系统「账户 - 本地日历」里） */
+    private const val APP_CALENDAR_NAME = "小唐Tangle课表"
+    private const val APP_CALENDAR_ACCOUNT = "小唐Tangle"
 
     /**
      * 日历 Provider 的 AUTHORITY 候选，按优先级排：
@@ -163,6 +168,56 @@ object CalendarSyncUtils {
             // 该 AUTHORITY 不存在或被拦截 → 当作没有，换下一个候选
         }
         return result
+    }
+
+    /**
+     * 手机里一个可写入的日历都查不到时，**自己建一个本地日历**来用。
+     *
+     * 为什么需要这一步：ColorOS 等 ROM 上第三方应用可能查不到任何可写日历（私有库里没有、
+     * 或者用户把日历权限设成了「仅允许创建」被 Provider 拦了查询），此时旧逻辑直接报错退出，
+     * 用户永远同步不了。这里用 sync-adapter 身份（CALLER_IS_SYNCADAPTER + ACCOUNT_TYPE_LOCAL）
+     * 插入一个属于本应用的本地日历，之后读写都走它。
+     *
+     * @return 建好（或已存在）的日历；所有候选 Provider 都失败则返回 null
+     */
+    fun ensureLocalCalendar(resolver: ContentResolver): SyncCalendar? {
+        for (auth in AUTHORITY_CANDIDATES) {
+            ensureLocalCalendar(resolver, auth)?.let { return it }
+        }
+        return null
+    }
+
+    private fun ensureLocalCalendar(resolver: ContentResolver, authority: String): SyncCalendar? {
+        // 已经建过就直接用（按显示名找）
+        queryCalendars(resolver, calendarsUri(authority), null, null, authority)
+                .firstOrNull { it.name == APP_CALENDAR_NAME }?.let { return it }
+
+        val uri = calendarsUri(authority).buildUpon()
+                .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+                .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, APP_CALENDAR_ACCOUNT)
+                .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE,
+                        CalendarContract.ACCOUNT_TYPE_LOCAL)
+                .build()
+        val values = ContentValues().apply {
+            put(CalendarContract.Calendars.ACCOUNT_NAME, APP_CALENDAR_ACCOUNT)
+            put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+            put(CalendarContract.Calendars.NAME, APP_CALENDAR_NAME)
+            put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, APP_CALENDAR_NAME)
+            put(CalendarContract.Calendars.CALENDAR_COLOR, 0xFF007AFF.toInt())
+            put(CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL,
+                    CalendarContract.Calendars.CAL_ACCESS_OWNER)
+            put(CalendarContract.Calendars.OWNER_ACCOUNT, APP_CALENDAR_ACCOUNT)
+            put(CalendarContract.Calendars.VISIBLE, 1)
+            put(CalendarContract.Calendars.SYNC_EVENTS, 1)
+            put(CalendarContract.Calendars.CALENDAR_TIME_ZONE, TimeZone.getDefault().id)
+        }
+        return try {
+            val row = resolver.insert(uri, values) ?: return null
+            val id = ContentUris.parseId(row)
+            if (id <= 0) null else SyncCalendar(id, APP_CALENDAR_NAME, APP_CALENDAR_ACCOUNT, authority)
+        } catch (ignored: Exception) {
+            null
+        }
     }
 
     /**

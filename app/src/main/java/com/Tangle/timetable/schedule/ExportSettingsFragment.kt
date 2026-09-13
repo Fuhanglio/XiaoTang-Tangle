@@ -101,7 +101,7 @@ class ExportSettingsFragment : BaseDialogFragment() {
     private fun startSync() {
         val act = activity ?: return
         launch {
-            val calendars = try {
+            var calendars = try {
                 withContext(Dispatchers.IO) {
                     CalendarSyncUtils.queryWritableCalendars(act.contentResolver)
                 }
@@ -110,8 +110,17 @@ class ExportSettingsFragment : BaseDialogFragment() {
                 return@launch
             }
             if (calendars.isEmpty()) {
-                Toasty.error(act, "没找到可以写入的日历\n若是 ColorOS：请到 系统设置 → 应用 → 小唐Tangle → 日历权限，改成「允许全部」（「仅允许创建」会读不到日历列表）", Toasty.LENGTH_LONG).show()
-                return@launch
+                // 一个可写日历都没有（ColorOS 私有库 / 权限受限时常见）：
+                // 不再要求用户先去日历 App 里手建，本应用自己建一个本地日历来用
+                val created = withContext(Dispatchers.IO) {
+                    CalendarSyncUtils.ensureLocalCalendar(act.contentResolver)
+                }
+                if (created != null) {
+                    calendars = listOf(created)
+                } else {
+                    Toasty.error(act, "没找到可以写入的日历，自动创建也没成功\n请到 系统设置 → 应用 → 小唐Tangle → 日历权限，改成「允许全部」（「仅允许创建」会读不到、也建不了日历）", Toasty.LENGTH_LONG).show()
+                    return@launch
+                }
             }
             val saved = act.getPrefer().getLong(Const.KEY_SYNC_CALENDAR_ID, -1L)
             val remembered = calendars.firstOrNull { it.id == saved }

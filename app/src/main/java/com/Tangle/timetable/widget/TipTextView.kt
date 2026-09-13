@@ -14,12 +14,14 @@ import kotlin.math.ceil
 /**
  * 课表格子里的一块课程。
  *
- * 排版规则（长课名修复）：格子里的内容按重要性从高到低分成四段
+ * 排版规则（长课名修复）：
+ * 格子里的内容按重要性从高到低分成四段
  *     课名  >  教室  >  开始时间  >  单双周
- * 当格子高度放不下全部文字时：
- *   1. 先保证"教室"这一行一定显示（它是最容易被长课名挤掉的信息）；
- *   2. 课名按剩余高度做**限行 + 省略号**，而不是任其换行把后面的行顶出格子；
- *   3. 只剩"课名 1 行 + 教室"都放不下的极端情况，才依次丢掉"开始时间"和"单双周"。
+ * 先按**实际排版出来的行数**把「教室 / 单双周 / 开始时间」的高度算清楚（教室名长了自己也会换行，
+ * 必须按真实行数留位，否则课名会把教室顶出格子），剩下的高度才给课名：
+ *   1. 教室那一行一定显示（它是最容易被长课名挤掉的信息）；
+ *   2. 课名做**限行 + 省略号**，最多 [MAX_NAME_LINES] 行，不再任其换行把后面的行顶出格子；
+ *   3. 只剩「课名 1 行 + 教室」都放不下的极端情况，才依次丢掉「单双周」和「开始时间」。
  *
  * 之所以由 View 自己排版而不是在拼字符串时截断：格子高度随"课程格子高度"设置、节次（step）、
  * 文字大小三处变化，只有拿到实际宽高后才能算出到底能排几行。
@@ -179,32 +181,47 @@ class TipTextView(context: Context) : View(context) {
         var showWeek = weekText.isNotEmpty()
         val showRoom = roomText.isNotEmpty()
 
-        // 非课名的固定行各占一行，超容量时按 单双周 -> 开始时间 的顺序丢弃
-        var fixedLines = (if (showTime) 1 else 0) + (if (showRoom) 1 else 0) + (if (showWeek) 1 else 0)
-        while (fixedLines + 1 > availLines) {
+        fun buildHead(time: Boolean): StaticLayout? =
+                if (time) makeLayout(timeText, contentW) else null
+
+        /** 尾部 = 「@教室」一行，可能再跟一行单双周；教室名长了自己也会换行 */
+        fun buildTail(room: Boolean, week: Boolean): StaticLayout? {
+            val sb = StringBuilder()
+            if (room) sb.append("@").append(roomText)
+            if (week) {
+                if (sb.isNotEmpty()) sb.append('\n')
+                sb.append(weekText)
+            }
+            return if (sb.isEmpty()) null else makeLayout(sb.toString(), contentW)
+        }
+
+        fun linesOf(layout: StaticLayout?): Int = layout?.lineCount ?: 0
+
+        var head = buildHead(showTime)
+        var tail = buildTail(showRoom, showWeek)
+        // 关键：教室/单双周要占几行，按**实际排出来的行数**算，不能固定按 1 行估。
+        // 旧写法固定按 1 行算，教室名稍微长一点就换行成 2 行，课名占满剩余行后
+        // 尾部整体超出格子被裁掉 —— 这就是「长课名把教室名顶出格子」的真因。
+        // 超容量时按「单双周 -> 开始时间」的顺序丢弃；两者都丢了还放不下就只能让尾部被裁。
+        while (linesOf(head) + linesOf(tail) + 1 > availLines) {
             if (showWeek) {
                 showWeek = false
-                fixedLines--
+                tail = buildTail(showRoom, false)
             } else if (showTime) {
                 showTime = false
-                fixedLines--
+                head = buildHead(false)
             } else {
-                // 连"课名 1 行 + 教室"都放不下：格子物理高度不够，只能让尾部溢出后被裁
                 break
             }
         }
 
-        val mainLines = (availLines - fixedLines).coerceAtLeast(1)
-        headLayout = if (showTime) makeLayout(timeText, contentW) else null
+        // 课名最多给 4 行：再长的课名排成 5、6 行既看不清也挤压别的信息
+        val roomForName = (availLines - linesOf(head) - linesOf(tail)).coerceAtLeast(1)
+        val mainLines = roomForName.coerceAtMost(MAX_NAME_LINES)
+
+        headLayout = head
         mainLayout = makeEllipsizedLayout(courseName, mainLines, contentW)
-        val tail = buildString {
-            if (showRoom) append("@").append(roomText)
-            if (showWeek) {
-                if (isNotEmpty()) append("\n")
-                append(weekText)
-            }
-        }
-        tailLayout = if (tail.isEmpty()) null else makeLayout(tail, contentW)
+        tailLayout = tail
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -260,5 +277,8 @@ class TipTextView(context: Context) : View(context) {
         const val TIP_VISIBLE = 1
         const val TIP_ERROR = -1
         const val TIP_OTHER_WEEK = 2
+
+        /** 课名最多排几行（超出加省略号）：再长也读不清，还会挤压教室等其它信息 */
+        private const val MAX_NAME_LINES = 4
     }
 }
