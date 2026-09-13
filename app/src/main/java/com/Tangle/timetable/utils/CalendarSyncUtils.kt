@@ -6,6 +6,7 @@ import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
 import com.Tangle.timetable.bean.CourseBean
@@ -32,14 +33,46 @@ import java.util.TimeZone
  * 3. 安卓规定：**循环日程必须用 DURATION，不能给 DTEND**（给了也会被忽略），
  *    所以这里做了分支，只有「只上一周」的日程才走 DTEND。
  * 4. 全天日程（每日课表）必须用 **UTC 时区 + 午夜边界**，否则日历里日期会错位一天。
+ * 5. **新版 ColorOS/OPPO 日历把数据搬进了私有 Provider**（AUTHORITY = com.coloros.calendar），
+ *    原生 com.android.calendar 在新机型上基本是空库，直接查会得到「没有可写入的日历」。
+ *    所以这里先探测用哪个库：OPPO 私有库优先、原生兜底，读写全程走同一个库。
  */
 object CalendarSyncUtils {
 
     /** 提前多少分钟提醒上课 */
     private const val REMINDER_MINUTES = 15
 
+    /**
+     * 日历 Provider 的 AUTHORITY 候选，按优先级排：
+     * OPPO 官方文档（open.oppomobile.com）：新版日历（versionCode >= 7001000）数据在
+     * com.coloros.calendar 私有库，原生的只剩 exchange 同步数据，所以私有库必须排在原生前面。
+     */
+    private val AUTHORITY_CANDIDATES = listOf(
+            "com.coloros.calendar",     // OPPO / 一加 ColorOS 新版日历私有库
+            "com.oplus.calendar",       // OPlus 系新包名兜底
+            "com.oneplus.calendar",     // 一加旧包名兜底
+            CalendarContract.AUTHORITY  // 原生 com.android.calendar（其他品牌走这里）
+    )
+
+    /** 某个 AUTHORITY 的日历表 Uri */
+    private fun calendarsUri(auth: String): Uri =
+            if (auth == CalendarContract.AUTHORITY) CalendarContract.Calendars.CONTENT_URI
+            else Uri.parse("content://$auth/calendars")
+
+    /** 某个 AUTHORITY 的日程表 Uri */
+    private fun eventsUri(auth: String): Uri =
+            if (auth == CalendarContract.AUTHORITY) CalendarContract.Events.CONTENT_URI
+            else Uri.parse("content://$auth/events")
+
+    /** 某个 AUTHORITY 的提醒表 Uri */
+    private fun remindersUri(auth: String): Uri =
+            if (auth == CalendarContract.AUTHORITY) CalendarContract.Reminders.CONTENT_URI
+            else Uri.parse("content://$auth/reminders")
+
     /** 可写入的日历 */
-    data class SyncCalendar(val id: Long, val name: String, val accountName: String) {
+    data class SyncCalendar(val id: Long, val name: String, val accountName: String,
+                            /** 这条日历来自哪个 Provider（新版 ColorOS 是 com.coloros.calendar） */
+                            val authority: String) {
         /** 弹选择框时显示的文字 */
         val displayName: String
             get() = if (accountName.isBlank() ||
@@ -79,38 +112,55 @@ object CalendarSyncUtils {
 
     /**
      * 列出系统里所有允许写入的日历。
+     * 自动探测 Provider：新版 ColorOS 数据在 com.coloros.calendar 私有库，其他品牌走原生。
      * 国内 ROM 一般至少有「本地日历」和一个云同步账户的日历。
      */
     fun queryWritableCalendars(resolver: ContentResolver): List<SyncCalendar> {
+        val selection = "${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ? " +
+                "AND ${CalendarContract.Calendars.VISIBLE} = 1"
+        val args = arrayOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString())
+        // 1) 先按「可写 + 可见」严格查，哪个库有结果就用哪个
+        for (auth in AUTHORITY_CANDIDATES) {
+            val list = queryCalendars(resolver, calendarsUri(auth), selection, args, auth)
+            if (list.isNotEmpty()) return list
+        }
+        // 2) 兜底：有的 ROM 把本地日历的 access / visible 标得很低，放宽条件再扫一遍
+        for (auth in AUTHORITY_CANDIDATES) {
+            val list = queryCalendars(resolver, calendarsUri(auth), null, null, auth)
+            if (list.isNotEmpty()) return list
+        }
+        return emptyList()
+    }
+
+    /** 按 Uri 查询日历列表；Provider 不存在（如非 OPPO 机型查私有库）会抛异常，静默换下一个 */
+    private fun queryCalendars(resolver: ContentResolver, uri: Uri,
+                               selection: String?, args: Array<String>?,
+                               authority: String): List<SyncCalendar> {
         val result = arrayListOf<SyncCalendar>()
         val projection = arrayOf(
                 CalendarContract.Calendars._ID,
                 CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
                 CalendarContract.Calendars.ACCOUNT_NAME
         )
-        val selection = "${CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL} >= ? " +
-                "AND ${CalendarContract.Calendars.VISIBLE} = 1"
-        val args = arrayOf(CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR.toString())
-        resolver.query(
-                CalendarContract.Calendars.CONTENT_URI,
-                projection,
-                selection,
-                args,
-                null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID)
-            val nameIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
-            val accountIndex = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
-            if (idIndex < 0) return@use
-            while (cursor.moveToNext()) {
-                val name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
-                val account = if (accountIndex >= 0) cursor.getString(accountIndex) else null
-                result.add(SyncCalendar(
-                        id = cursor.getLong(idIndex),
-                        name = if (name.isNullOrBlank()) "未命名日历" else name,
-                        accountName = account ?: ""
-                ))
+        try {
+            resolver.query(uri, projection, selection, args, null)?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(CalendarContract.Calendars._ID)
+                val nameIndex = cursor.getColumnIndex(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+                val accountIndex = cursor.getColumnIndex(CalendarContract.Calendars.ACCOUNT_NAME)
+                if (idIndex < 0) return@use
+                while (cursor.moveToNext()) {
+                    val name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                    val account = if (accountIndex >= 0) cursor.getString(accountIndex) else null
+                    result.add(SyncCalendar(
+                            id = cursor.getLong(idIndex),
+                            name = if (name.isNullOrBlank()) "未命名日历" else name,
+                            accountName = account ?: "",
+                            authority = authority
+                    ))
+                }
             }
+        } catch (ignored: Exception) {
+            // 该 AUTHORITY 不存在或被拦截 → 当作没有，换下一个候选
         }
         return result
     }
@@ -124,7 +174,8 @@ object CalendarSyncUtils {
                   table: TableBean,
                   timeList: List<TimeDetailBean>,
                   courseList: List<CourseBean>,
-                  calendarId: Long): Int {
+                  calendarId: Long,
+                  authority: String): Int {
         val resolver = context.contentResolver
         val termStart = parseDate(table.startDate)
                 ?: throw IllegalArgumentException("学期开始日期不对：${table.startDate}")
@@ -146,27 +197,27 @@ object CalendarSyncUtils {
         if (events.isEmpty()) return 0
 
         // 先清掉上一次同步进来的日程，避免叠加
-        deleteSyncedEvents(resolver, table.id)
+        deleteSyncedEvents(resolver, table.id, authority)
 
         try {
-            resolver.applyBatch(CalendarContract.AUTHORITY, buildOps(events, calendarId, true))
+            resolver.applyBatch(authority, buildOps(events, calendarId, true, authority))
         } catch (e: Exception) {
             // 有些 ROM 的提醒表批量插入会失败，退一步：只写日程、不带提醒
-            deleteSyncedEvents(resolver, table.id)
-            resolver.applyBatch(CalendarContract.AUTHORITY, buildOps(events, calendarId, false))
+            deleteSyncedEvents(resolver, table.id, authority)
+            resolver.applyBatch(authority, buildOps(events, calendarId, false, authority))
         }
         return events.size
     }
 
     /** 清掉本 App 之前同步进日历的日程（只清这一张课表的，含每节课和每日课表两类） */
-    fun deleteSyncedEvents(resolver: ContentResolver, tableId: Int): Int {
+    fun deleteSyncedEvents(resolver: ContentResolver, tableId: Int, authority: String): Int {
         var count = resolver.delete(
-                CalendarContract.Events.CONTENT_URI,
+                eventsUri(authority),
                 "${CalendarContract.Events.DESCRIPTION} LIKE ?",
                 arrayOf("${descMark(tableId)}%")
         )
         count += resolver.delete(
-                CalendarContract.Events.CONTENT_URI,
+                eventsUri(authority),
                 "${CalendarContract.Events.DESCRIPTION} LIKE ?",
                 arrayOf("${descDailyMark(tableId)}%")
         )
@@ -178,7 +229,7 @@ object CalendarSyncUtils {
     private fun descDailyMark(tableId: Int) = "[小唐Tangle#日课#$tableId]"
 
     private fun buildOps(events: List<EventItem>, calendarId: Long,
-                         withReminder: Boolean): ArrayList<ContentProviderOperation> {
+                         withReminder: Boolean, authority: String): ArrayList<ContentProviderOperation> {
         val ops = arrayListOf<ContentProviderOperation>()
         val timeZone = TimeZone.getDefault().id
         events.forEach { e ->
@@ -203,11 +254,11 @@ object CalendarSyncUtils {
                 }
             }
             val eventIndex = ops.size
-            ops.add(ContentProviderOperation.newInsert(CalendarContract.Events.CONTENT_URI)
+            ops.add(ContentProviderOperation.newInsert(eventsUri(authority))
                     .withValues(values)
                     .build())
             if (withReminder && e.remind) {
-                ops.add(ContentProviderOperation.newInsert(CalendarContract.Reminders.CONTENT_URI)
+                ops.add(ContentProviderOperation.newInsert(remindersUri(authority))
                         .withValueBackReference(CalendarContract.Reminders.EVENT_ID, eventIndex)
                         .withValue(CalendarContract.Reminders.MINUTES, REMINDER_MINUTES)
                         .withValue(CalendarContract.Reminders.METHOD,

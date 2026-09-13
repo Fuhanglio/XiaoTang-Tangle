@@ -110,7 +110,7 @@ class ExportSettingsFragment : BaseDialogFragment() {
                 return@launch
             }
             if (calendars.isEmpty()) {
-                Toasty.error(act, "手机里没有找到可以写入的日历", Toasty.LENGTH_LONG).show()
+                Toasty.error(act, "没找到可以写入的日历\n若是 ColorOS：请到 系统设置 → 应用 → 小唐Tangle → 日历权限，改成「允许全部」（「仅允许创建」会读不到日历列表）", Toasty.LENGTH_LONG).show()
                 return@launch
             }
             val saved = act.getPrefer().getLong(Const.KEY_SYNC_CALENDAR_ID, -1L)
@@ -145,7 +145,8 @@ class ExportSettingsFragment : BaseDialogFragment() {
                 val courses = viewModel.allCourseList.flatMap { it.value ?: emptyList() }
                 withContext(Dispatchers.IO) {
                     CalendarSyncUtils.syncTable(
-                            act, viewModel.table, viewModel.timeList, courses, target.id)
+                            act, viewModel.table, viewModel.timeList, courses, target.id,
+                            target.authority)
                 }
             } catch (e: Exception) {
                 Toasty.error(act, "同步失败：${e.message}", Toasty.LENGTH_LONG).show()
