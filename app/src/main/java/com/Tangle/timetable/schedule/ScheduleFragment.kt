@@ -90,8 +90,9 @@ class ScheduleFragment : BaseFragment() {
                 textView.text = viewModel.daysArray[i] + "\n${weekDate[ui.dayMap[i]]}"
             }
         }
+        // 节数可能被用户设置得大于时间段数量，直接按 nodes 索引会越界崩溃
         if (viewModel.timeList.isNotEmpty() && ui.showTimeDetail) {
-            for (i in 0 until viewModel.table.nodes) {
+            for (i in 0 until minOf(viewModel.table.nodes, viewModel.timeList.size)) {
                 (ui.content.getViewById(R.id.anko_tv_node1 + i) as FrameLayout).apply {
                     findViewById<AppCompatTextView>(R.id.tv_start).text = viewModel.timeList[i].startTime
                     findViewById<AppCompatTextView>(R.id.tv_end).text = viewModel.timeList[i].endTime
@@ -293,7 +294,7 @@ class ScheduleFragment : BaseFragment() {
                 if (isOtherWeek) append("[非本周]")
             }
             val startTime = if (table.showTime && viewModel.timeList.isNotEmpty()) {
-                viewModel.timeList[c.startNode - 1].startTime
+                viewModel.timeList.getOrNull(c.startNode - 1)?.startTime ?: ""
             } else {
                 ""
             }

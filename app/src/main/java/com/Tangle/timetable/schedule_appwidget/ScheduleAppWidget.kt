@@ -24,7 +24,7 @@ class ScheduleAppWidget : AppWidgetProvider() {
                     val table = if (appWidget.info.isEmpty()) {
                         tableDao.getDefaultTable()
                     } else {
-                        tableDao.getTableById(appWidget.info.toInt())
+                        tableDao.getTableById(appWidget.info.toIntOrNull() ?: -1)
                     }
                     if (table != null) {
                         AppWidgetUtils.refreshScheduleWidget(context, AppWidgetManager.getInstance(context), appWidget.id, table, true)
@@ -41,7 +41,7 @@ class ScheduleAppWidget : AppWidgetProvider() {
                     val table = if (appWidget.info.isEmpty()) {
                         tableDao.getDefaultTable()
                     } else {
-                        tableDao.getTableById(appWidget.info.toInt())
+                        tableDao.getTableById(appWidget.info.toIntOrNull() ?: -1)
                     }
                     if (table != null) {
                         AppWidgetUtils.refreshScheduleWidget(context, AppWidgetManager.getInstance(context), appWidget.id, table)

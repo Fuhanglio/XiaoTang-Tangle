@@ -105,7 +105,8 @@ object ThemeManager {
     }
 
     private fun notifyChanged() {
-        listeners.forEach { runCatching { it.invoke() } }
+        // 快照遍历：回调里可能 removeListener（Activity 销毁路径），直接迭代会 CME
+        listeners.toList().forEach { runCatching { it.invoke() } }
     }
 
     // ============ 初始化 ============

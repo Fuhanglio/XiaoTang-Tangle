@@ -23,7 +23,7 @@ data class TableBean(
         var nodes: Int = 20,
         var background: String = "",
         var timeTable: Int = 1,
-        var startDate: String = "2020-02-03",
+        var startDate: String = currentWeekMonday(),
         var maxWeek: Int = 30,
         var itemHeight: Int = 56,
         var itemAlpha: Int = 60,
@@ -44,3 +44,11 @@ data class TableBean(
         var showTime: Boolean = false,
         var type: Int = 0
 ) : Parcelable
+/** 新建课表的默认开学日期：本周周一（课程周次约定 startDate 填第 1 周第一天） */
+fun currentWeekMonday(): String {
+    val cal = java.util.Calendar.getInstance()
+    val dow = cal.get(java.util.Calendar.DAY_OF_WEEK)
+    val diff = if (dow == java.util.Calendar.SUNDAY) -6 else java.util.Calendar.MONDAY - dow
+    cal.add(java.util.Calendar.DAY_OF_MONTH, diff)
+    return java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA).format(cal.time)
+}

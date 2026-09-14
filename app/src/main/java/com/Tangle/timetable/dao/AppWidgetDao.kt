@@ -26,4 +26,10 @@ interface AppWidgetDao {
 
     @Query("select * from appwidgetbean where baseType = :baseType")
     suspend fun getWidgetsByBaseType(baseType: Int): List<AppWidgetBean>
+
+    @Query("select * from appwidgetbean where id = :id")
+    fun getWidgetByIdSync(id: Int): AppWidgetBean?
+
+    @Query("delete from appwidgetbean where info = :tableId")
+    suspend fun deleteAppWidgetByInfo(tableId: String)
 }

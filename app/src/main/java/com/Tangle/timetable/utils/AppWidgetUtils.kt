@@ -44,6 +44,8 @@ object AppWidgetUtils {
     fun updateWidget(context: Context) {
         val intent = Intent()
         intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        // 显式限定本应用，否则 Android 8+ 隐式广播会被拒收/无人接收，改课后小部件实际不刷新
+        intent.setPackage(context.packageName)
         context.sendBroadcast(intent)
     }
 
@@ -155,7 +157,7 @@ object AppWidgetUtils {
 
         // 点击标题或列表区域：打开 App
         val intent = Intent(context, SplashActivity::class.java)
-        val pIntent = PendingIntent.getActivity(context, 0, intent, 0)
+        val pIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.tv_weekTitle, pIntent)
         mRemoteViews.setOnClickPendingIntent(R.id.ll_week, pIntent)
 
@@ -183,7 +185,7 @@ object AppWidgetUtils {
             putExtra("nodes", tableBean.nodes)
             putExtra("id", -1)
         }
-        val addPi = PendingIntent.getActivity(context, 5, addIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val addPi = PendingIntent.getActivity(context, 5, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_add, addPi)
 
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
@@ -195,7 +197,14 @@ object AppWidgetUtils {
      */
     fun refreshWidgetById(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, detailType: Int) {
         try {
-            val table = AppDatabase.getDatabase(context).tableDao().getDefaultTableSync() ?: return
+            val db = AppDatabase.getDatabase(context)
+            val tableDao = db.tableDao()
+            // 优先按部件登记的 info（绑定课表 id）取表，与 refreshAllWidgets 的口径一致；
+            // 旧实现一律取默认表，增删改课后会把绑定非默认表的周课表部件刷成默认表内容
+            val boundId = db.appWidgetDao().getWidgetByIdSync(appWidgetId)
+                    ?.info?.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: -1
+            val table = (if (boundId > 0) tableDao.getTableByIdSync(boundId) else null)
+                    ?: tableDao.getDefaultTableSync() ?: return
             if (detailType == 0) {
                 refreshScheduleWidget(context, appWidgetManager, appWidgetId, table)
             } else {
@@ -484,14 +493,14 @@ object AppWidgetUtils {
                     BirthdayUtils.text(context).ifBlank { "写一句给自己 / 给 TA 的话吧~" })
             // 点板块直接进设置页改日期或寄语
             val bPi = PendingIntent.getActivity(context, 6,
-                    Intent(context, BirthdayReminderActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT)
+                    Intent(context, BirthdayReminderActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             mRemoteViews.setOnClickPendingIntent(R.id.ll_birthday, bPi)
         } else {
             mRemoteViews.setViewVisibility(R.id.ll_birthday, View.GONE)
         }
 
         val intent = Intent(context, SplashActivity::class.java)
-        val pIntent = PendingIntent.getActivity(context, 0, intent, 0)
+        val pIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.tv_headerTitle, pIntent)
 
         // 点击整个列表区域：先刷新数据再打开 App
@@ -544,9 +553,15 @@ object AppWidgetUtils {
             }
             rv.setTextViewText(R.id.tv_next_info, info)
             val mins = next.minutesUntilStart
+            // 今天还有未开始的课时不再误标「明天」：按 startMillis 落在哪一天判断
+            val nowCal = java.util.Calendar.getInstance()
+            val startCal = java.util.Calendar.getInstance().apply { timeInMillis = next.startMillis }
+            val sameDay = nowCal.get(java.util.Calendar.YEAR) == startCal.get(java.util.Calendar.YEAR) &&
+                    nowCal.get(java.util.Calendar.DAY_OF_YEAR) == startCal.get(java.util.Calendar.DAY_OF_YEAR)
             rv.setTextViewText(R.id.tv_next_countdown,
                     when {
                         mins in 0..120 -> "还有${mins}分钟上课"
+                        sameDay -> "今天 ${next.startText}"
                         else -> "明天 ${next.startText}"
                     })
         }

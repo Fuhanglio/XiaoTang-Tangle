@@ -308,6 +308,7 @@ object WidgetData {
             months[1] = month
             for (i in 2..7) {
                 if (dayNumbers[i] < dayNumbers[i - 1]) month += 1
+                if (month > 12) month -= 12   // 跨年：12 月之后是 1 月，不能显示 13 月
                 months[i] = month
             }
             val todayIndex = CourseUtils.getWeekdayInt()

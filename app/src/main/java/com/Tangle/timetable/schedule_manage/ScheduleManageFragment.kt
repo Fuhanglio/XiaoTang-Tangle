@@ -10,12 +10,15 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.Navigation
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.content.Intent
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseFragment
+import com.Tangle.timetable.AppDatabase
 import com.Tangle.timetable.bean.TableSelectBean
+import com.Tangle.timetable.utils.CalendarSyncUtils
 import com.Tangle.timetable.schedule_settings.ScheduleSettingsActivity
 import es.dmoral.toasty.Toasty
 import kotlinx.android.synthetic.main.fragment_list_manage.*
@@ -104,11 +107,30 @@ class ScheduleManageFragment : BaseFragment() {
         adapter.setOnItemChildLongClickListener { _, view, position ->
             when (view.id) {
                 R.id.ib_delete -> {
-                    launch {
-                        viewModel.deleteTable(data[position].id)
-                        adapter.remove(position)
-                        Toasty.success(context!!, "删除成功~").show()
-                    }
+                    // 删除是不可恢复操作：先确认，再连带清理日历日程与小部件绑定
+                    // 注意：本工程 Kotlin 1.3 不允许在字符串模板 ${} 里再用双引号，名字先取出来
+                    val deleteName = data[position].tableName.ifEmpty { "未命名课表" }
+                    MaterialAlertDialogBuilder(activity!!)
+                            .setTitle("删除课表")
+                            .setMessage("删除「$deleteName」？\n该课表的全部课程将一并删除，且无法恢复。")
+                            .setNegativeButton(R.string.cancel, null)
+                            .setPositiveButton("删除") { _, _ ->
+                                launch {
+                                    val tid = data[position].id
+                                    CalendarSyncUtils.deleteSyncedEventsAllProviders(
+                                            activity!!.applicationContext.contentResolver, tid)
+                                    AppDatabase.getDatabase(activity!!.applicationContext)
+                                            .appWidgetDao().deleteAppWidgetByInfo(tid.toString())
+                                    viewModel.deleteTable(tid)
+                                    adapter.remove(position)
+                                    // 所有小部件按各自绑定重新取数（被删表的部件回落到默认表/空态）
+                                    context!!.sendBroadcast(
+                                            Intent(context!!, com.Tangle.timetable.widget.WidgetUpdateReceiver::class.java)
+                                                    .setAction(com.Tangle.timetable.widget.WidgetScheduler.ACTION_REFRESH))
+                                    Toasty.success(context!!, "删除成功~").show()
+                                }
+                            }
+                            .show()
                     return@setOnItemChildLongClickListener true
                 }
                 else -> {

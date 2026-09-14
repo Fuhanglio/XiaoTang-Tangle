@@ -74,6 +74,10 @@ class CourseManageFragment : BaseFragment() {
                                 viewModel.clearTable(table!!.id)
                                 adapter.data.clear()
                                 adapter.notifyDataSetChanged()
+                                // 清空后同步刷新桌面小部件（原来只有删单课刷新、清空不刷新）
+                                context!!.sendBroadcast(
+                                        Intent(context!!, com.Tangle.timetable.widget.WidgetUpdateReceiver::class.java)
+                                                .setAction(com.Tangle.timetable.widget.WidgetScheduler.ACTION_REFRESH))
                                 Toasty.success(activity!!, "操作成功~").show()
                             } catch (e: Exception) {
                                 Toasty.error(activity!!, "操作失败>_<${e.message}").show()

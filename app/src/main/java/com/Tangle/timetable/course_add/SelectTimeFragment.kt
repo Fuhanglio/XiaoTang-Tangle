@@ -65,7 +65,7 @@ class SelectTimeFragment : BaseDialogFragment() {
 
         wp_end.minValue = 0
         wp_end.maxValue = viewModel.nodes - 1
-        if (start < 1) start = 1
+        if (end < 1) end = 1
         wp_end.value = end - 1
 
         wp_day.setOnValueChangedListener { _, _, newVal ->

@@ -67,5 +67,7 @@ object Const {
 
     /** 上一次「同步到系统日历」选中的日历 id，-1 表示还没选过 */
     const val KEY_SYNC_CALENDAR_ID = "sync_calendar_id"
+    /** v132 起记忆「authority|id」组合键，避免不同日历库同 id 撞号写错日历 */
+    const val KEY_SYNC_CALENDAR_KEY = "sync_calendar_key"
 
 }

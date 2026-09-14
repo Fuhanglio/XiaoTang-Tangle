@@ -1,22 +1,13 @@
 package com.Tangle.timetable.today_appwidget
 
 import android.annotation.SuppressLint
-import android.app.AlarmManager
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
-import android.content.Context.ALARM_SERVICE
-import android.content.Context.NOTIFICATION_SERVICE
 import android.content.Intent
-import android.graphics.BitmapFactory
-import android.os.Build
-import androidx.core.app.NotificationCompat
 import com.Tangle.timetable.AppDatabase
 import com.Tangle.timetable.R
-import com.Tangle.timetable.SplashActivity
 import com.Tangle.timetable.bean.AppWidgetBean
 import com.Tangle.timetable.utils.*
 import java.util.*
@@ -31,47 +22,9 @@ class TodayCourseAppWidget : AppWidgetProvider() {
 
     @SuppressLint("NewApi")
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == "WAKEUP_REMIND_COURSE") {
-            if (context.getPrefer().getBoolean(Const.KEY_COURSE_REMIND, false)) {
-                val courseName = intent.getStringExtra("courseName")
-                var room = intent.getStringExtra("room")
-                val time = intent.getStringExtra("time")
-                val weekDay = intent.getStringExtra("weekDay")
-                val index = intent.getIntExtra("index", PendingIntent.FLAG_IMMUTABLE)
-
-                if (room.isNullOrEmpty()) {
-                    room = "未知"
-                }
-
-                val manager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-
-                val cancelIntent = Intent(context, TodayCourseAppWidget::class.java).apply {
-                    action = "WAKEUP_CANCEL_REMINDER"
-                    putExtra("index", index)
-                }
-                val cancelPendingIntent: PendingIntent = PendingIntent.getBroadcast(context, index, cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-                val openIntent = Intent(context, SplashActivity::class.java)
-                val openPendingIntent: PendingIntent = PendingIntent.getActivity(context, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
-
-                val notification = NotificationCompat.Builder(context, "schedule_reminder")
-                        .setContentTitle("$time $courseName")
-                        .setSubText("上课提醒")
-                        .setContentText("$weekDay  地点：$room")
-                        .setWhen(System.currentTimeMillis())
-                        .setSmallIcon(R.drawable.wakeup)
-                        .setAutoCancel(false)
-                        .setOngoing(context.getPrefer().getBoolean(Const.KEY_REMINDER_ON_GOING, false))
-                        .setPriority(NotificationCompat.PRIORITY_MAX)
-                        .setDefaults(NotificationCompat.DEFAULT_VIBRATE)
-                        .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
-                        .setVibrate(longArrayOf(0, 300, 200, 300))
-                        .addAction(R.drawable.wakeup, "记得给手机静音哦", cancelPendingIntent)
-                        .addAction(R.drawable.wakeup, "我知道啦", cancelPendingIntent)
-                        .setContentIntent(openPendingIntent)
-                manager.notify(index, notification.build())
-            }
-        }
+        // 注意：不处理任何带 extras 的自定义通知类 action。
+        // 旧的 WAKEUP_REMIND_COURSE 通道全工程无发送方（死代码），却因 Provider 隐式导出
+        // 可被任意第三方应用伪造 extras 直接弹 PRIORITY_MAX 通知（钓鱼面），已整段移除。
         if (intent.action == "WAKEUP_NEXT_DAY") {
             val tableDao = AppDatabase.getDatabase(context).tableDao()
             val awm = AppWidgetManager.getInstance(context)
@@ -93,10 +46,6 @@ class TodayCourseAppWidget : AppWidgetProvider() {
                     AppWidgetUtils.refreshTodayWidget(context, awm, id, table, false, manual = true)
                 }
             }
-        }
-        if (intent.action == "WAKEUP_CANCEL_REMINDER") {
-            val manager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            manager.cancel(intent.getIntExtra("index", PendingIntent.FLAG_IMMUTABLE))
         }
         super.onReceive(context, intent)
     }

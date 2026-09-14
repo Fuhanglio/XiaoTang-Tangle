@@ -65,7 +65,7 @@ class TimeSettingsActivity : BaseTitleActivity() {
         val navGraph = navHostFragment.navController.navInflater.inflate(R.navigation.nav_time_settings)
         val fragDestination = navGraph.findNode(R.id.timeTableFragment)!!
         fragDestination.addArgument("selectedId", NavArgument.Builder()
-                .setType(NavType.IntType).setIsNullable(false).setDefaultValue(intent.extras!!.getInt("selectedId")).build())
+                .setType(NavType.IntType).setIsNullable(false).setDefaultValue(intent?.extras?.getInt("selectedId") ?: 1).build())
 //        fragDestination.setDefaultArguments(Bundle().apply {
 //            this.putInt("selectedId", intent.extras!!.getInt("selectedId"))
 //        })

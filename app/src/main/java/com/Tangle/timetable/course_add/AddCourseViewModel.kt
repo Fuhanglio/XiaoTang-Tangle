@@ -79,7 +79,10 @@ class AddCourseViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun saveData(isSame: Boolean = false) {
         if (isSame) {
-            courseDao.updateSameCourse(baseBean, saveList)
+            // 同名「覆盖」语义：删掉该课旧的全部时间段明细再写本次内容。
+            // 旧的 updateSameCourse 只更新 base 并追加明细，CourseDetailBean 主键含
+            // day/startNode，新明细不会 REPLACE 旧行，结果新旧时段叠加、列表出两条同名课。
+            courseDao.updateSingleCourse(baseBean, saveList)
             return
         }
         if (updateFlag) {

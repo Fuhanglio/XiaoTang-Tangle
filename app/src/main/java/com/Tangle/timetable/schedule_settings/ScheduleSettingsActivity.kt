@@ -102,7 +102,14 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
             }
         }
         super.onCreate(savedInstanceState)
-        viewModel.table = intent.extras!!.getParcelable<TableBean>("tableData") as TableBean
+        // 首装无默认课表时上层可能 putExtra(null)，双重断言会直接 NPE 闪退
+        val tableData = intent.extras?.getParcelable<TableBean>("tableData")
+        if (tableData == null) {
+            Toasty.error(this, "课表数据缺失，请从课表页进入设置").show()
+            finish()
+            return
+        }
+        viewModel.table = tableData
 
         // 渲染前把主题颜色同步到课表（单一数据源：ThemeManager）
         ThemeManager.applyToTable(this, viewModel.table)

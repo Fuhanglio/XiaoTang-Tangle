@@ -122,8 +122,10 @@ class ExportSettingsFragment : BaseDialogFragment() {
                     return@launch
                 }
             }
-            val saved = act.getPrefer().getLong(Const.KEY_SYNC_CALENDAR_ID, -1L)
-            val remembered = calendars.firstOrNull { it.id == saved }
+            // v132 起记忆「authority|id」组合键：不同日历库的 id 各自从 1 编号，
+            // 只按 id 匹配会在错误的库里命中同号日历，把日程写错地方
+            val savedKey = act.getPrefer().getString(Const.KEY_SYNC_CALENDAR_KEY, null)
+            val remembered = savedKey?.let { key -> calendars.firstOrNull { "${it.authority}|${it.id}" == key } }
             when {
                 remembered != null -> doSync(act, remembered)
                 calendars.size == 1 -> doSync(act, calendars[0])
@@ -161,7 +163,10 @@ class ExportSettingsFragment : BaseDialogFragment() {
                 Toasty.error(act, "同步失败：${e.message}", Toasty.LENGTH_LONG).show()
                 return@launch
             }
-            act.getPrefer().edit { putLong(Const.KEY_SYNC_CALENDAR_ID, target.id) }
+            act.getPrefer().edit {
+                putString(Const.KEY_SYNC_CALENDAR_KEY, "${target.authority}|${target.id}")
+                putLong(Const.KEY_SYNC_CALENDAR_ID, target.id)
+            }
             showFinishDialog(act, written, target)
             dismiss()
         }

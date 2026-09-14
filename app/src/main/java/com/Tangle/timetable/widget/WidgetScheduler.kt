@@ -34,6 +34,9 @@ object WidgetScheduler {
     private const val RC_BASE_END = 4000
     private const val RC_BASE_REMIND = 6000
 
+    /** 单日闹钟槽位上限：一天最多 12 节课足够覆盖，取消旧闹钟时按这个范围扫 */
+    private const val MAX_COURSE_ALARMS = 32
+
     private const val WORK_NAME = "widget_fallback_refresh"
 
     /** Android 12+ 是否有精确闹钟权限（低版本恒为 true）。用反射兼容 compileSdk 29。 */
@@ -68,19 +71,27 @@ object WidgetScheduler {
         val pi = PendingIntent.getBroadcast(
                 context, RC_RECOMPUTE,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_RECOMPUTE),
-                PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
     }
 
     /** 为今天所有课程注册 开始/结束/课前提醒 闹钟 */
     private fun scheduleCourseAlarms(context: Context, am: AlarmManager) {
+        // 先撤掉旧数据（昨天/删课/缩课/关提醒）留下的全部课程闹钟，再按今天的课重排。
+        // requestCode 按序复用而从不 cancel，会让关掉提醒/删课后的旧闹钟继续弹通知。
+        for (rc in 0 until MAX_COURSE_ALARMS) {
+            cancelAlarm(context, am, RC_BASE_START + rc, ACTION_COURSE_START)
+            cancelAlarm(context, am, RC_BASE_END + rc, ACTION_COURSE_END)
+            cancelAlarm(context, am, RC_BASE_REMIND + rc, ACTION_REMIND)
+        }
         val courses = WidgetData.getDayCourses(context, false)
         val now = System.currentTimeMillis()
         val remindBefore = context.getPrefer().getInt(Const.KEY_REMINDER_TIME, 10)
         val remindEnabled = context.getPrefer().getBoolean(Const.KEY_COURSE_REMIND, false)
 
         courses.forEachIndexed { index, c ->
+            if (index >= MAX_COURSE_ALARMS) return@forEachIndexed
             // 开始点刷新
             if (c.startMillis > now) {
                 setAlarm(context, am, RC_BASE_START + index, c.startMillis,
@@ -100,6 +111,14 @@ object WidgetScheduler {
                 }
             }
         }
+    }
+
+    /** 取消一个已注册的闹钟（requestCode + action 相同即视为同一条）；没有就不做 */
+    private fun cancelAlarm(context: Context, am: AlarmManager, requestCode: Int, action: String) {
+        val intent = Intent(context, WidgetUpdateReceiver::class.java).setAction(action)
+        val pi = PendingIntent.getBroadcast(context, requestCode, intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+        if (pi != null) am.cancel(pi)
     }
 
     private fun setAlarm(context: Context, am: AlarmManager, requestCode: Int,

@@ -44,7 +44,14 @@ class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {
 
         val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
         //Log.d("包名", appWidgetManager.getAppWidgetInfo(mAppWidgetId).provider.shortClassName)
-        val what = appWidgetManager.getAppWidgetInfo(mAppWidgetId).provider.shortClassName
+        // mAppWidgetId 非法 / 部件已被移除时 getAppWidgetInfo 返回 null
+        val info = appWidgetManager.getAppWidgetInfo(mAppWidgetId)
+        if (info == null) {
+            Toasty.error(applicationContext, "未获取到小部件信息，请重新添加").show()
+            finish()
+            return
+        }
+        val what = info.provider.shortClassName
         isTodayType = (what == ".today_appwidget.TodayCourseAppWidget" || what == "com.Tangle.timetable.today_appwidget.TodayCourseAppWidget")
         if (isTodayType) {
             Glide.with(this)

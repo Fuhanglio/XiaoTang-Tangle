@@ -4,7 +4,7 @@
 
 ### 这个版本改了什么
 
-**当前版本：v131 / 3.662**（2026-09-13）
+**当前版本：v132 / 3.663**（2026-09-14）
 
 | 方向 | 内容 |
 | --- | --- |
@@ -28,7 +28,7 @@
 
 安装包放在 [Releases](https://github.com/Fuhanglio/XiaoTang-Tangle/releases) 里，每个版本一个 APK：
 
-- [**最新版（v131 / 3.662）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
+- [**最新版（v132 / 3.663）**](https://github.com/Fuhanglio/XiaoTang-Tangle/releases/latest)
 - [全部历史版本](https://github.com/Fuhanglio/XiaoTang-Tangle/releases)
 
 安装前需在「设置 → 关于本机」里连点版本号开启开发者选项，并允许安装未知来源应用。若已装过旧版，直接覆盖安装即可，课表数据不会丢。

@@ -15,6 +15,8 @@ import com.Tangle.timetable.R
 import com.Tangle.timetable.SplashActivity
 import com.Tangle.timetable.today_appwidget.TodayCourseAppWidget
 import com.Tangle.timetable.utils.AppWidgetUtils
+import com.Tangle.timetable.utils.Const
+import com.Tangle.timetable.utils.getPrefer
 import com.Tangle.timetable.utils.goAsync
 import com.Tangle.timetable.next_appwidget.NextCourseAppWidget
 
@@ -30,7 +32,7 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
 
         when (action) {
             // 课前提醒通知
-            WidgetScheduler.ACTION_REMIND -> {
+            WidgetScheduler.ACTION_REMIND -> goAsync {
                 showReminderNotification(context, intent)
                 refreshAllWidgets(context)
                 WidgetScheduler.scheduleAll(context)
@@ -43,17 +45,19 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
             Intent.ACTION_DATE_CHANGED,
             Intent.ACTION_SCREEN_ON,
             WidgetScheduler.ACTION_COURSE_START,
-            WidgetScheduler.ACTION_COURSE_END -> {
+            WidgetScheduler.ACTION_COURSE_END -> goAsync {
                 refreshAllWidgets(context)
                 WidgetScheduler.scheduleAll(context)
             }
             // 手动刷新
-            WidgetScheduler.ACTION_REFRESH -> {
+            WidgetScheduler.ACTION_REFRESH -> goAsync {
                 refreshAllWidgets(context)
             }
             // 点击小部件：先刷新数据，再打开 App 主界面
             "com.Tangle.timetable.action.WIDGET_OPEN_APP" -> {
-                refreshAllWidgets(context)
+                goAsync {
+                    refreshAllWidgets(context)
+                }
                 val open = Intent(context, SplashActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 }
@@ -67,6 +71,8 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
     }
 
     private fun showReminderNotification(context: Context, intent: Intent) {
+        // 提醒总开关：关了就不再弹（旧闹钟残留时也不能弹出来）
+        if (!context.getPrefer().getBoolean(Const.KEY_COURSE_REMIND, false)) return
         try {
             val name = intent.getStringExtra("courseName") ?: "课程"
             val room = intent.getStringExtra("room") ?: ""

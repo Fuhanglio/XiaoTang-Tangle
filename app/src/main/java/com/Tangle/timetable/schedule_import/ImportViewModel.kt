@@ -83,14 +83,20 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             Common.TYPE_JNU -> JNUParser(source)
             else -> null
         }
-        return parser?.saveCourse(getApplication(), importId) { baseList, detailList ->
-            if (!newFlag) {
-                courseDao.coverImport(baseList, detailList)
-            } else {
-                tableDao.insertTable(TableBean(id = importId, tableName = "未命名"))
-                courseDao.insertCourses(baseList, detailList)
-            }
-        } ?: throw Exception("请确保选择正确的教务类型，以及到达显示课程的页面")
+        // 统一兜底：各解析器的 generateCourseList 里存在裸 NPE / 越界（页面改版、错误页），
+        // 原样抛出会以 NPE 形态直接崩到导入页；这里转成可读的业务异常。
+        try {
+            return parser?.saveCourse(getApplication(), importId) { baseList, detailList ->
+                if (!newFlag) {
+                    courseDao.coverImport(baseList, detailList)
+                } else {
+                    tableDao.insertTable(TableBean(id = importId, tableName = "未命名"))
+                    courseDao.insertCourses(baseList, detailList)
+                }
+            } ?: throw Exception("请确保选择正确的教务类型，以及到达显示课程的页面")
+        } catch (e: Exception) {
+            throw Exception("导入失败：${e.message ?: e.javaClass.simpleName}\n请确认教务类型与页面是否匹配，或改用截图 / 文件导入")
+        }
     }
 
     suspend fun getNewId(): Int {
@@ -432,7 +438,9 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                     }
 
                     baseList.add(CourseBaseBean(
-                            id = baseList.size, courseName = lclass.replace(Regex("\\([a-zA-Z0-9.]+\\).*").find(lclass)!!.value, ""),
+                            // 课程名可能没有「(xx班)」括号后缀，find 结果为 null 不能强解
+                            id = baseList.size,
+                            courseName = Regex("\\([a-zA-Z0-9.]+\\).*").find(lclass)?.value?.let { lclass.replace(it, "") } ?: lclass,
                             color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9))}",
                             tableId = importId
                     ))

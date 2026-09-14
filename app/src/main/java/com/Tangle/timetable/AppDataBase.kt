@@ -65,7 +65,9 @@ abstract class AppDatabase : RoomDatabase() {
                         "    type INTEGER NOT NULL DEFAULT 0,\n" +
                         "    FOREIGN KEY (timeTable) REFERENCES TimeTableBean (id) ON DELETE SET DEFAULT ON UPDATE CASCADE\n" +
                         ");")
-                database.execSQL("CREATE INDEX index_TableBean_id_timeTable ON TableBean (timeTable ASC);")
+                // 索引名必须与实体 @Index 推导名一致（index_TableBean_timeTable），
+                // 否则 Room 的 TableInfo 校验报 "Migration didn't properly handle tablebean"
+                database.execSQL("CREATE INDEX index_TableBean_timeTable ON TableBean (timeTable ASC);")
                 database.execSQL("ALTER TABLE CourseBaseBean RENAME TO CourseBaseBean_old;")
                 database.execSQL("CREATE TABLE CourseBaseBean(id INTEGER NOT NULL, courseName TEXT NOT NULL, color TEXT NOT NULL, tableId INTEGER NOT NULL, PRIMARY KEY (id, tableId), FOREIGN KEY (tableId) REFERENCES TableBean (id) ON DELETE CASCADE ON UPDATE CASCADE);")
                 database.execSQL("INSERT INTO TableBean (tableName) VALUES('');")
@@ -96,7 +98,7 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE TimeDetailBean RENAME TO TimeDetailBean_old;")
                 database.execSQL("CREATE TABLE TimeDetailBean (node INTEGER NOT NULL, startTime TEXT NOT NULL, endTime TEXT NOT NULL, timeTable INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (node, timeTable), FOREIGN KEY (timeTable) REFERENCES TimeTableBean (id) ON DELETE CASCADE ON UPDATE CASCADE);")
                 database.execSQL("INSERT INTO TimeDetailBean (node, startTime, endTime) SELECT node, startTime, endTime FROM TimeDetailBean_old;")
-                database.execSQL("CREATE INDEX index_TimeDetailBean_id_timeTable ON TimeDetailBean(timeTable ASC);")
+                database.execSQL("CREATE INDEX index_TimeDetailBean_timeTable ON TimeDetailBean(timeTable ASC);")
                 database.execSQL("DROP TABLE TimeDetailBean_old;")
                 database.execSQL("ALTER TABLE TimeTableBean ADD COLUMN sameLen INTEGER NOT NULL DEFAULT 1;")
                 database.execSQL("ALTER TABLE TimeTableBean ADD COLUMN courseLen INTEGER NOT NULL DEFAULT 50;")

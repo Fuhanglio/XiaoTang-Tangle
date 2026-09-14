@@ -58,7 +58,9 @@ class ScheduleActivity : BaseActivity() {
     private var mAdapter: SchedulePagerAdapter? = null
 
     private lateinit var ui: ScheduleActivityUI
-    private var courseObserversRegistered = false
+    /** 课程 LiveData 观察者与其绑定的 tableId：切换默认课表后必须按新 id 重绑（修复 C3） */
+    private var courseObserversTableId = -1
+    private val courseObservers = arrayOfNulls<androidx.lifecycle.Observer<List<com.Tangle.timetable.bean.CourseBean>>>(7)
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
 
     private val preLoad by lazy(LazyThreadSafetyMode.NONE) {
@@ -570,15 +572,27 @@ class ScheduleActivity : BaseActivity() {
 
             initEvent()
 
-            if (!courseObserversRegistered) {
-                courseObserversRegistered = true
-                for (i in 1..7) {
-                    viewModel.getRawCourseByDay(i, viewModel.table.id).observe(this@ScheduleActivity, Observer { list ->
-                        if (list == null) return@Observer
-                        if (list.isNotEmpty() && list[0].tableId != viewModel.table.id) return@Observer
-                        viewModel.allCourseList[i - 1].value = list
-                    })
+            // 课程 LiveData 观察者按 tableId 绑定：切默认课表后必须解绑旧表、重绑新表。
+            // 旧的一次性注册守卫会把观察者绑死在首次加载的 tableId 上，
+            // 切表后 allCourseList 永远收不到新表数据（网格渲染旧表课程）。
+            if (courseObserversTableId != viewModel.table.id) {
+                if (courseObserversTableId > 0) {
+                    courseObservers.forEachIndexed { idx, ob ->
+                        ob?.let {
+                            viewModel.getRawCourseByDay(idx + 1, courseObserversTableId)
+                                    .removeObserver(it)
+                        }
+                    }
                 }
+                for (i in 1..7) {
+                    val ob = androidx.lifecycle.Observer<List<com.Tangle.timetable.bean.CourseBean>> { list ->
+                        if (list == null) return@Observer
+                        viewModel.allCourseList[i - 1].value = list
+                    }
+                    courseObservers[i - 1] = ob
+                    viewModel.getRawCourseByDay(i, viewModel.table.id).observe(this@ScheduleActivity, ob)
+                }
+                courseObserversTableId = viewModel.table.id
             }
         }
     }
@@ -621,7 +635,7 @@ class ScheduleActivity : BaseActivity() {
                         viewModel.exportData(uri)
                         showShareDialog("分享课程文件", uri!!)
                     } catch (e: Exception) {
-                        Toasty.error(this@ScheduleActivity, "导出失败>_<${e.message}")
+                        Toasty.error(this@ScheduleActivity, "导出失败>_<${e.message}").show()
                     }
                 }
             }
@@ -632,7 +646,7 @@ class ScheduleActivity : BaseActivity() {
                         viewModel.exportICS(uri)
                         showShareDialog("分享日历文件", uri!!)
                     } catch (e: Exception) {
-                        Toasty.error(this@ScheduleActivity, "导出失败>_<${e.message}")
+                        Toasty.error(this@ScheduleActivity, "导出失败>_<${e.message}").show()
                     }
                 }
             }

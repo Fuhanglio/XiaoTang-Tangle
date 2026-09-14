@@ -251,17 +251,32 @@ object CalendarSyncUtils {
         }
         if (events.isEmpty()) return 0
 
-        // 先清掉上一次同步进来的日程，避免叠加
-        deleteSyncedEvents(resolver, table.id, authority)
+        // 先按候选库全量清掉上一次同步进来的日程（含换库前的残留），避免叠加
+        deleteSyncedEventsAllProviders(resolver, table.id)
 
         try {
             resolver.applyBatch(authority, buildOps(events, calendarId, true, authority))
         } catch (e: Exception) {
             // 有些 ROM 的提醒表批量插入会失败，退一步：只写日程、不带提醒
-            deleteSyncedEvents(resolver, table.id, authority)
+            deleteSyncedEventsAllProviders(resolver, table.id)
             resolver.applyBatch(authority, buildOps(events, calendarId, false, authority))
         }
         return events.size
+    }
+
+    /**
+     * 把本 App 在【所有候选日历库】里该课表的同步日程全部清掉。
+     * v130 起支持多个 Provider，只删「当前目标库」会残留换库前写入的旧日程（幂等失效），
+     * 所以删表/重新同步时都按候选库全量清理。
+     */
+    fun deleteSyncedEventsAllProviders(resolver: ContentResolver, tableId: Int) {
+        for (auth in AUTHORITY_CANDIDATES) {
+            try {
+                deleteSyncedEvents(resolver, tableId, auth)
+            } catch (ignored: Exception) {
+                // 该库不存在/被拦截就算了
+            }
+        }
     }
 
     /** 清掉本 App 之前同步进日历的日程（只清这一张课表的，含每节课和每日课表两类） */

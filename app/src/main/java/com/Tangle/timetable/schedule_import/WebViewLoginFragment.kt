@@ -22,6 +22,7 @@ import com.google.android.material.textfield.TextInputLayout
 import com.Tangle.timetable.BuildConfig
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseFragment
+import android.net.Uri
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.Utils
 import com.Tangle.timetable.utils.ViewUtils
@@ -395,6 +396,14 @@ class WebViewLoginFragment : BaseFragment() {
         expandTried = false
         fab_import.isEnabled = false
         Toasty.info(activity!!, "正在抓取页面源码…").show()
+        // 按钮复位保险：无论走哪条抓取分支（含失败），12 秒后必然恢复可点，
+        // 否则解析失败一次后本页永远无法重试
+        wv_course.postDelayed({
+            try {
+                if (isAdded) fab_import.isEnabled = true
+            } catch (t: Throwable) {
+            }
+        }, 12000L)
 
         if (pageProgress < 100) {
             // 页面还在加载中（例如用户刚点了「更多」或切换了学期）：
@@ -488,7 +497,27 @@ class WebViewLoginFragment : BaseFragment() {
     internal inner class InJavaScriptLocalObj {
         @JavascriptInterface
         fun showSource(html: String) {
-            // Log.d("源码", html)
+            // JS 桥对所有加载的页面生效，必须校验当前页 host 属于教务站点，
+            // 否则 WebView 内任意第三方页面都能静默触发「覆盖导入」污染课表数据
+            val currentHost = try { Uri.parse(wv_course.url ?: "").host ?: "" } catch (t: Throwable) { "" }
+            val allowedHosts = mutableListOf<String>()
+            viewModel.schoolInfo.getOrNull(1)?.let {
+                try { Uri.parse(it).host?.let { h -> allowedHosts.add(h) } } catch (t: Throwable) {}
+            }
+            try {
+                context!!.getPrefer().getString(Const.KEY_SCHOOL_URL, null)?.let {
+                    Uri.parse(it).host?.let { h -> allowedHosts.add(h) }
+                }
+            } catch (t: Throwable) {}
+            val hostOk = currentHost.isNotEmpty() && allowedHosts.any { allowed ->
+                currentHost == allowed || currentHost.endsWith(".$allowed") || allowed.endsWith(".$currentHost")
+            }
+            if (allowedHosts.isNotEmpty() && !hostOk) {
+                launch {
+                    Toasty.error(activity!!, "当前页面不是教务站点，已拒绝导入").show()
+                }
+                return
+            }
             launch {
                 try {
                     val result = viewModel.importSchedule(html)
@@ -499,6 +528,11 @@ class WebViewLoginFragment : BaseFragment() {
                 } catch (e: Exception) {
                     Toasty.error(activity!!,
                             "导入失败>_<\n${e.message}", Toast.LENGTH_LONG).show()
+                    // 失败后恢复导入按钮，让用户可以重试
+                    try {
+                        if (isAdded) fab_import.isEnabled = true
+                    } catch (t: Throwable) {
+                    }
                 }
             }
         }

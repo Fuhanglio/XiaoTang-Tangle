@@ -355,9 +355,8 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
                     AppWidgetUtils.refreshWidgetById(applicationContext, appWidgetManager, it.id, it.detailType)
                 }
                 Toasty.success(applicationContext, "保存成功").show()
-                if (!viewModel.updateFlag) {
-                    setResult(Activity.RESULT_OK, Intent().putExtra("course", viewModel.baseBean))
-                }
+                // 编辑保存也回传结果，管理页列表才会刷新（原来只有新增回传）
+                setResult(Activity.RESULT_OK, Intent().putExtra("course", viewModel.baseBean))
                 finish()
             } catch (e: Exception) {
                 Toasty.error(applicationContext, e.message ?: "发生异常", Toast.LENGTH_LONG).show()
