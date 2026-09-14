@@ -124,7 +124,11 @@ class ExportSettingsFragment : BaseDialogFragment() {
             // v132 起记忆「authority|id」组合键：不同日历库的 id 各自从 1 编号，
             // 只按 id 匹配会在错误的库里命中同号日历，把日程写错地方
             val savedKey = act.getPrefer().getString(Const.KEY_SYNC_CALENDAR_KEY, null)
-            val remembered = savedKey?.let { key -> calendars.firstOrNull { "${it.authority}|${it.id}" == key } }
+            val remembered0 = savedKey?.let { key -> calendars.firstOrNull { "${it.authority}|${it.id}" == key } }
+            // ColorOS 日历的「课程表」视图只读它自带的那个「课程表」本地日历。
+            // 只要系统里存在这个日历，就优先写进它（否则课表视图会一直空白）。
+            val systemCourse = calendars.firstOrNull { it.isSystemCourseCalendar }
+            val remembered = systemCourse ?: remembered0
             when {
                 remembered != null -> doSync(act, remembered)
                 calendars.size == 1 -> doSync(act, calendars[0])
@@ -134,7 +138,10 @@ class ExportSettingsFragment : BaseDialogFragment() {
     }
 
     private fun showCalendarPicker(act: Activity, calendars: List<CalendarSyncUtils.SyncCalendar>) {
-        val labels = calendars.map { it.displayName }.toTypedArray()
+        val labels = calendars.map {
+            if (it.isSystemCourseCalendar) it.displayName + " ← 系统「课程表」视图用它"
+            else it.displayName
+        }.toTypedArray()
         MaterialAlertDialogBuilder(act)
                 .setTitle("写进哪个日历？")
                 .setItems(labels) { _, which ->
@@ -176,6 +183,9 @@ class ExportSettingsFragment : BaseDialogFragment() {
                 .setTitle("同步好啦")
                 .setMessage("已经把「$tableName」的 $count 条日程写进「${target.displayName}」。\n\n" +
                         "· 每节课一条，提前 15 分钟提醒；\n" +
+                        (if (target.isSystemCourseCalendar)
+                            "· 已写进系统自带的「课程表」日历，日历里的「课程表」视图也能显示了。\n"
+                        else "") +
                         "· 每天一条「今日课表」，这天几节课、都是什么，一眼看到。\n\n" +
                         "打开系统日历，或者负一屏 / 桌面的「日历」「日程」卡片都能看到。\n" +
                         "以后改完课表再点一次这里就行，会自动覆盖上一次，不会重复。")

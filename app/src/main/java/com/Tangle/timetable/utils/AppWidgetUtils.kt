@@ -37,6 +37,8 @@ fun BroadcastReceiver.goAsync(
             // 关键保险：刷新里的任何异常都不能变成未捕获异常杀掉进程，
             // 否则小部件会停在布局默认的「加载中…」，直到下一个触发点才自愈
             Log.e("WidgetAsync", "widget refresh failed", t)
+            // 顺带落盘：这里会把异常吞掉，只写 logcat 容易错过（真机排查时缓冲区常已翻篇）
+            CrashLogger.logCaught("widget", t)
         } finally {
             // Always call finish(), even if the coroutineScope was cancelled
             result.finish()

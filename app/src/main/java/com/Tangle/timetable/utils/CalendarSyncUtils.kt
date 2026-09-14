@@ -47,6 +47,14 @@ object CalendarSyncUtils {
     private const val APP_CALENDAR_NAME = "小唐Tangle课表"
     private const val APP_CALENDAR_ACCOUNT = "小唐Tangle"
 
+/**
+ * ColorOS 日历「课程表」功能专属的本地日历：account_name = oplus_course_default_calendar、显示名「课程表」。
+ * 系统日历里那个「课程表」视图**只读这个库**，所以同步时只要它存在就必须优先写进去，
+ * 否则课表视图永远是空的（日程在「日历」标签下能看到，但课表视图看不到）。
+ */
+private const val COLOROS_COURSE_ACCOUNT = "oplus_course_default_calendar"
+private const val COLOROS_COURSE_CALENDAR_NAME = "课程表"
+
     /**
      * 日历 Provider 的 AUTHORITY 候选，按优先级排：
      * OPPO 官方文档（open.oppomobile.com）：新版日历（versionCode >= 7001000）数据在
@@ -78,6 +86,11 @@ object CalendarSyncUtils {
     data class SyncCalendar(val id: Long, val name: String, val accountName: String,
                             /** 这条日历来自哪个 Provider（新版 ColorOS 是 com.coloros.calendar） */
                             val authority: String) {
+
+        /** 是否是 ColorOS「课程表」专属日历（系统课表视图的数据源） */
+        val isSystemCourseCalendar: Boolean
+            get() = accountName.equals(COLOROS_COURSE_ACCOUNT, true) ||
+                    name == COLOROS_COURSE_CALENDAR_NAME
         /** 弹选择框时显示的文字 */
         val displayName: String
             get() = if (accountName.isBlank() ||
@@ -127,12 +140,12 @@ object CalendarSyncUtils {
         // 1) 先按「可写 + 可见」严格查，哪个库有结果就用哪个
         for (auth in AUTHORITY_CANDIDATES) {
             val list = queryCalendars(resolver, calendarsUri(auth), selection, args, auth)
-            if (list.isNotEmpty()) return list
+            if (list.isNotEmpty()) return list.sortedByDescending { it.isSystemCourseCalendar }
         }
         // 2) 兜底：有的 ROM 把本地日历的 access / visible 标得很低，放宽条件再扫一遍
         for (auth in AUTHORITY_CANDIDATES) {
             val list = queryCalendars(resolver, calendarsUri(auth), null, null, auth)
-            if (list.isNotEmpty()) return list
+            if (list.isNotEmpty()) return list.sortedByDescending { it.isSystemCourseCalendar }
         }
         return emptyList()
     }

@@ -18,11 +18,15 @@ import java.util.Locale
  */
 object CrashLogger {
 
+    /** 由 install() 注入的应用级 Context：让 logCaught() 无需再传 Context */
+    private var appContext: Context? = null
+
     private const val TAG = "CrashLogger"
 
     fun install(context: Context) {
         try {
             val app = context.applicationContext
+            appContext = app
             val prev = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
@@ -37,7 +41,16 @@ object CrashLogger {
         }
     }
 
-    private fun write(context: Context, thread: Thread, throwable: Throwable) {
+    /** 记录「被 try/catch 吞掉」的异常（不崩溃但会影响功能），写进「下载」目录便于取回 */
+    fun logCaught(tag: String, throwable: Throwable) {
+        try {
+            val ctx = appContext ?: return
+            write(ctx, Thread.currentThread(), throwable, "caught_" + tag)
+        } catch (t: Throwable) {
+        }
+    }
+
+    private fun write(context: Context, thread: Thread, throwable: Throwable, prefix: String = "crash") {
         val sb = StringBuilder()
         sb.append("time: ").append(SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA).format(Date())).append('\n')
         sb.append("device: ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL)
@@ -52,7 +65,7 @@ object CrashLogger {
         sb.append('\n').append(Log.getStackTraceString(throwable))
 
         val text = sb.toString()
-        val name = "xiaotang_crash_" + System.currentTimeMillis() + ".txt"
+        val name = "xiaotang_" + prefix + "_" + System.currentTimeMillis() + ".txt"
 
         if (Build.VERSION.SDK_INT >= 29) {
             try {
