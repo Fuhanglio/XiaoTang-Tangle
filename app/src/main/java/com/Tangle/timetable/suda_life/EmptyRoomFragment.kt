@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseFragment
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_empty_room.*
 import splitties.dimensions.dip
 
 class EmptyRoomFragment : BaseFragment() {

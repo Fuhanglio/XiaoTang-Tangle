@@ -15,7 +15,6 @@ import androidx.navigation.fragment.NavHostFragment
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseTitleActivity
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.activity_time_settings.*
 import kotlinx.coroutines.delay
 import splitties.resources.color
 import splitties.snackbar.longSnack

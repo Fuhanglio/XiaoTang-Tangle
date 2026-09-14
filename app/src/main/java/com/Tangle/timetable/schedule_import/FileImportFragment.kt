@@ -9,7 +9,6 @@ import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseFragment
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.ViewUtils
-import kotlinx.android.synthetic.main.fragment_file_import.*
 
 class FileImportFragment : BaseFragment() {
 

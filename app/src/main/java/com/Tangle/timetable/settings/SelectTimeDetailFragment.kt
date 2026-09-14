@@ -6,7 +6,6 @@ import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.activityViewModels
 import com.Tangle.timetable.R
 import com.Tangle.timetable.utils.CourseUtils
-import kotlinx.android.synthetic.main.fragment_select_time_detail.*
 
 class SelectTimeDetailFragment : BaseDialogFragment() {
     override val layoutId: Int

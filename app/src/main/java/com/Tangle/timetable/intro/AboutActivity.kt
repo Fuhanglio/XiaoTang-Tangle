@@ -5,7 +5,6 @@ import androidx.appcompat.widget.AppCompatTextView
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseBlurTitleActivity
 import com.Tangle.timetable.utils.UpdateUtils
-import kotlinx.android.synthetic.main.activity_about.*
 
 class AboutActivity : BaseBlurTitleActivity() {
     override val layoutId: Int

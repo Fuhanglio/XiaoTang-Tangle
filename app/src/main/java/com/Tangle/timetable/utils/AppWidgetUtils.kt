@@ -169,18 +169,18 @@ object AppWidgetUtils {
         // 上一周 / 下一周
         val nextIntent = Intent(context, ScheduleAppWidget::class.java)
         nextIntent.action = "WAKEUP_NEXT_WEEK"
-        val pi = PendingIntent.getBroadcast(context, 1, nextIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val pi = PendingIntent.getBroadcast(context, 1, nextIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_next, pi)
 
         val backIntent = Intent(context, ScheduleAppWidget::class.java)
         backIntent.action = "WAKEUP_BACK_WEEK"
-        val backPi = PendingIntent.getBroadcast(context, 2, backIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val backPi = PendingIntent.getBroadcast(context, 2, backIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_back, backPi)
 
         // 刷新图标
         val refreshPi = PendingIntent.getBroadcast(context, 4,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction(WidgetScheduler.ACTION_REFRESH),
-                PendingIntent.FLAG_UPDATE_CURRENT)
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
 
         // “+”：直接打开添加课程页，临时加一两节课不用再走教务导入
@@ -512,7 +512,7 @@ object AppWidgetUtils {
         // 点击整个列表区域：先刷新数据再打开 App
         val openPi = PendingIntent.getBroadcast(context, 3,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
-                PendingIntent.FLAG_UPDATE_CURRENT)
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.ll_course, openPi)
         // 空态按钮：同样先刷新再打开 App；显隐由本次有没有课决定
         mRemoteViews.setOnClickPendingIntent(R.id.tv_emptyAction, openPi)
@@ -521,18 +521,18 @@ object AppWidgetUtils {
         // 右上角刷新图标：立即更新（回到自动模式）
         val refreshPi = PendingIntent.getBroadcast(context, 4,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction(WidgetScheduler.ACTION_REFRESH),
-                PendingIntent.FLAG_UPDATE_CURRENT)
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
 
         // 手动临时查看明日/今日（闹钟触发的自动刷新会覆盖回智能模式）
         val i = Intent(context, TodayCourseAppWidget::class.java)
         i.action = "WAKEUP_NEXT_DAY"
-        val pi = PendingIntent.getBroadcast(context, 1, i, PendingIntent.FLAG_UPDATE_CURRENT)
+        val pi = PendingIntent.getBroadcast(context, 1, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_next, pi)
 
         val backIntent = Intent(context, TodayCourseAppWidget::class.java)
         backIntent.action = "WAKEUP_BACK_TIME"
-        val backPi = PendingIntent.getBroadcast(context, 2, backIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val backPi = PendingIntent.getBroadcast(context, 2, backIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_back, backPi)
 
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
@@ -596,7 +596,7 @@ object AppWidgetUtils {
         // 点击：先刷新再打开 App
         val openPi = PendingIntent.getBroadcast(context, appWidgetId,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
-                PendingIntent.FLAG_UPDATE_CURRENT)
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         rv.setOnClickPendingIntent(R.id.next_root, openPi)
 
         appWidgetManager.updateAppWidget(appWidgetId, rv)

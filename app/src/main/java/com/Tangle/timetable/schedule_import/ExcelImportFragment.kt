@@ -10,7 +10,6 @@ import com.Tangle.timetable.base_view.BaseFragment
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.Utils
 import com.Tangle.timetable.utils.ViewUtils
-import kotlinx.android.synthetic.main.fragment_excel_import.*
 
 class ExcelImportFragment : BaseFragment() {
 

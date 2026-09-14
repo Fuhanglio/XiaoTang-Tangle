@@ -7,7 +7,6 @@ import android.view.*
 import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.activityViewModels
 import com.Tangle.timetable.R
-import kotlinx.android.synthetic.main.fragment_multi_course.*
 import splitties.dimensions.dip
 
 class MultiCourseFragment : BaseDialogFragment() {

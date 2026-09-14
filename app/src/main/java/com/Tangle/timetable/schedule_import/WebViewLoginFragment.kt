@@ -19,7 +19,6 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
-import com.Tangle.timetable.BuildConfig
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseFragment
 import android.net.Uri
@@ -28,7 +27,6 @@ import com.Tangle.timetable.utils.Utils
 import com.Tangle.timetable.utils.ViewUtils
 import com.Tangle.timetable.utils.getPrefer
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_web_view_login.*
 import splitties.activities.start
 import splitties.snackbar.longSnack
 
@@ -107,7 +105,7 @@ class WebViewLoginFragment : BaseFragment() {
             cg_old_qz.visibility = View.GONE
         }
 
-        MaterialAlertDialogBuilder(activity)
+        MaterialAlertDialogBuilder(requireContext())
                 .setTitle("注意事项")
                 .setMessage(tips)
                 .setPositiveButton("我知道啦", null)
@@ -191,7 +189,7 @@ class WebViewLoginFragment : BaseFragment() {
         }
 
         chip_zoom.setOnClickListener {
-            val dialog = MaterialAlertDialogBuilder(activity)
+            val dialog = MaterialAlertDialogBuilder(requireContext())
                     .setTitle("设置缩放")
                     .setView(R.layout.dialog_edit_text)
                     .setNegativeButton(R.string.cancel, null)
@@ -539,7 +537,6 @@ class WebViewLoginFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
-        wv_course?.webViewClient = null
         wv_course?.webChromeClient = null
         wv_course?.clearCache(true)
         wv_course?.clearHistory()

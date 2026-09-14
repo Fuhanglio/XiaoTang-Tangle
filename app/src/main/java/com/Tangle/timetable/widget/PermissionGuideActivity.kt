@@ -260,7 +260,39 @@ class PermissionGuideActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 通知权限入口。
+     * Android 13（API 33）起发通知需运行时授予 POST_NOTIFICATIONS：先在应用内发起授权请求，
+     * 系统才会弹出授权框；若用户拒绝或此前已拒绝不再弹框，则引导到系统通知设置页。
+     */
     private fun openNotificationSetting() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            try {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+                return
+            } catch (e: Exception) {
+                // 出错时退回系统设置页
+            }
+        }
+        openNotificationSettingsPage()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001) {
+            if (grantResults.isNotEmpty() &&
+                    grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                rebuild()
+            } else {
+                // 未授予 → 引导到系统设置手动开启
+                openNotificationSettingsPage()
+            }
+        }
+    }
+
+    private fun openNotificationSettingsPage() {
         try {
             val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)

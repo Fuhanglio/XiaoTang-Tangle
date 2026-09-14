@@ -18,8 +18,6 @@ import com.Tangle.timetable.bean.CourseBean
 import com.Tangle.timetable.course_add.AddCourseActivity
 import com.Tangle.timetable.utils.AppWidgetUtils
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_course_detail.*
-import kotlinx.android.synthetic.main.item_add_course_detail.*
 import kotlinx.coroutines.delay
 import splitties.activities.start
 import splitties.dimensions.dip

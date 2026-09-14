@@ -21,7 +21,6 @@ import com.Tangle.timetable.bean.TableSelectBean
 import com.Tangle.timetable.utils.CalendarSyncUtils
 import com.Tangle.timetable.schedule_settings.ScheduleSettingsActivity
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_list_manage.*
 import splitties.activities.start
 import splitties.dimensions.dip
 
@@ -43,7 +42,7 @@ class ScheduleManageFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         fab_add.setOnClickListener {
-            val dialog = MaterialAlertDialogBuilder(context)
+            val dialog = MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.setting_schedule_name)
                     .setView(R.layout.dialog_edit_text)
                     .setNegativeButton(R.string.cancel, null)

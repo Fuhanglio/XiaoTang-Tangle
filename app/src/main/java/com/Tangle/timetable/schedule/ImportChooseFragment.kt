@@ -11,7 +11,6 @@ import com.Tangle.timetable.schedule_import.LoginWebActivity
 import com.Tangle.timetable.schedule_import.SchoolListActivity
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.Utils
-import kotlinx.android.synthetic.main.fragment_import_choose.*
 import splitties.activities.start
 
 class ImportChooseFragment : BaseDialogFragment() {
@@ -86,7 +85,7 @@ class ImportChooseFragment : BaseDialogFragment() {
     }
 
     private fun showSAFTips(block: () -> Unit) {
-        MaterialAlertDialogBuilder(activity)
+        MaterialAlertDialogBuilder(requireContext())
                 .setTitle("提示")
                 .setMessage("为了避免使用敏感的外部存储读写权限，本应用采用了系统级的文件选择器来选择文件。如果找不到路径，请点选择器右上角的三个点，选择「显示内部存储设备」，然后通过侧栏选择路径。")
                 .setNeutralButton("查看图文教程") { _, _ ->

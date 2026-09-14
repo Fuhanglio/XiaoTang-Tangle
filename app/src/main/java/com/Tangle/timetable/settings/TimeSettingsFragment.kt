@@ -119,7 +119,7 @@ class TimeSettingsFragment : BaseFragment() {
                 Toasty.error(activity!!, "默认时间表不能改名呢>_<").show()
                 return@setOnClickListener
             }
-            val dialog = MaterialAlertDialogBuilder(context)
+            val dialog = MaterialAlertDialogBuilder(requireContext())
                     .setTitle("时间表名字")
                     .setView(R.layout.dialog_edit_text)
                     .setNegativeButton(R.string.cancel, null)

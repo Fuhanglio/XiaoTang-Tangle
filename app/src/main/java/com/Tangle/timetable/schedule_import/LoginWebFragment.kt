@@ -22,7 +22,6 @@ import com.Tangle.timetable.schedule_import.login_school.jlu.UIMS
 import com.Tangle.timetable.schedule_import.login_school.suda.SudaXK
 import com.Tangle.timetable.utils.Utils
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_login_web.*
 import kotlinx.coroutines.delay
 import java.io.IOException
 import java.util.*

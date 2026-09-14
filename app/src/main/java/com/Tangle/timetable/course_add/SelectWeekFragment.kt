@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.Tangle.timetable.R
 import com.Tangle.timetable.widget.SelectedRecyclerView
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_select_week.*
 import splitties.resources.styledColor
 
 class SelectWeekFragment : BaseDialogFragment() {

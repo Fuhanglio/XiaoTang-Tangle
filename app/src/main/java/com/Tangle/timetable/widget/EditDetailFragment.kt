@@ -7,7 +7,6 @@ import androidx.appcompat.widget.AppCompatEditText
 import androidx.fragment.app.BaseDialogFragment
 import com.google.android.material.chip.Chip
 import com.Tangle.timetable.R
-import kotlinx.android.synthetic.main.fragment_edit_detail.*
 
 class EditDetailFragment : BaseDialogFragment() {
 

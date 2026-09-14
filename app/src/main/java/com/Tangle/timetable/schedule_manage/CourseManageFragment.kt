@@ -24,7 +24,6 @@ import com.Tangle.timetable.course_add.AddCourseActivity
 import com.Tangle.timetable.utils.AppWidgetUtils
 import com.Tangle.timetable.utils.Const
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_list_manage.*
 import splitties.activities.start
 import splitties.dimensions.dip
 
@@ -64,7 +63,7 @@ class CourseManageFragment : BaseFragment() {
             startActivityForResult(intent, Const.REQUEST_CODE_ADD_COURSE)
         }
         (activity as ScheduleManageActivity).subButton?.setOnClickListener {
-            MaterialAlertDialogBuilder(activity)
+            MaterialAlertDialogBuilder(requireContext())
                     .setTitle("提示")
                     .setMessage("真的要清空课表吗？这将无法恢复。")
                     .setNegativeButton(R.string.cancel, null)
@@ -106,7 +105,7 @@ class CourseManageFragment : BaseFragment() {
             }
         }
         adapter.setOnItemLongClickListener { _, _, position ->
-            MaterialAlertDialogBuilder(activity)
+            MaterialAlertDialogBuilder(requireContext())
                     .setTitle("提示")
                     .setMessage("确定要删除该课程吗？它的所有时间段都将会被删除。")
                     .setPositiveButton(R.string.sure) { _, _ ->

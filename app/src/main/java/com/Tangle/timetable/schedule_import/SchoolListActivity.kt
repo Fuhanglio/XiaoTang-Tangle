@@ -49,7 +49,6 @@ import com.Tangle.timetable.utils.Utils
 import com.Tangle.timetable.utils.getPrefer
 import com.timehop.stickyheadersrecyclerview.StickyRecyclerHeadersDecoration
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.activity_school_list.*
 import splitties.activities.start
 import splitties.dimensions.dip
 import splitties.resources.color

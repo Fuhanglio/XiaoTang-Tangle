@@ -9,7 +9,6 @@ import com.Tangle.timetable.SplashActivity
 import com.Tangle.timetable.base_view.BaseActivity
 import com.Tangle.timetable.utils.Const
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_login_web.*
 
 class LoginWebActivity : BaseActivity() {
 

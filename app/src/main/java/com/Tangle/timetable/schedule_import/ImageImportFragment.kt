@@ -19,7 +19,6 @@ import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.TessOcrUtils
 import com.Tangle.timetable.utils.ViewUtils
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_image_import.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max

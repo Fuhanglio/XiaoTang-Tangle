@@ -5,7 +5,6 @@ import android.view.View
 import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.activityViewModels
 import com.Tangle.timetable.R
-import kotlinx.android.synthetic.main.fragment_import_setting.*
 
 class ImportSettingFragment : BaseDialogFragment() {
     override val layoutId: Int

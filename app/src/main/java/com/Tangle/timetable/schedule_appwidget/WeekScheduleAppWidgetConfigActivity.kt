@@ -16,7 +16,6 @@ import com.Tangle.timetable.bean.AppWidgetBean
 import com.Tangle.timetable.bean.TableSelectBean
 import com.Tangle.timetable.utils.AppWidgetUtils
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.activity_week_schedule_app_widget_config.*
 import splitties.snackbar.longSnack
 
 class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {

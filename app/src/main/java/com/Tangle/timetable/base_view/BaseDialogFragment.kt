@@ -37,12 +37,21 @@ abstract class BaseDialogFragment : DialogFragment() {
         return root
     }
 
+    /**
+     * 重写 show()：正常路径走 super.show()（框架内部会维护自身状态），
+     * 仅当状态已保存、super.show() 内部 commit() 抛 IllegalStateException 时，
+     * 退回 commitAllowingStateLoss() 完成添加。
+     * 说明：新版 androidx.fragment 把 DialogFragment 的 mDismissed / mShownByMe 改成了 private，
+     * 旧实现直接赋值已不可编译。
+     */
     override fun show(manager: FragmentManager, tag: String?) {
-        mDismissed = false
-        mShownByMe = true
-        val ft = manager.beginTransaction()
-        ft.add(this, tag)
-        ft.commitAllowingStateLoss()
+        try {
+            super.show(manager, tag)
+        } catch (e: IllegalStateException) {
+            val ft = manager.beginTransaction()
+            ft.add(this, tag)
+            ft.commitAllowingStateLoss()
+        }
     }
 
 }

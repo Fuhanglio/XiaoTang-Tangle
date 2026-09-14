@@ -7,7 +7,6 @@ import androidx.fragment.app.activityViewModels
 import com.Tangle.timetable.R
 import com.Tangle.timetable.bean.CourseEditBean
 import com.Tangle.timetable.bean.TimeBean
-import kotlinx.android.synthetic.main.fragment_select_time.*
 
 class SelectTimeFragment : BaseDialogFragment() {
 

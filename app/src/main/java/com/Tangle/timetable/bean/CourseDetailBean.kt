@@ -2,15 +2,14 @@ package com.Tangle.timetable.bean
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
-import androidx.room.ForeignKey.CASCADE
 import androidx.room.Index
 
 @Entity(foreignKeys = [(
         ForeignKey(entity = CourseBaseBean::class,
                 parentColumns = ["id", "tableId"],
                 childColumns = ["id", "tableId"],
-                onUpdate = CASCADE,
-                onDelete = CASCADE
+                onUpdate = ForeignKey.CASCADE,
+                onDelete = ForeignKey.CASCADE
         ))],
         primaryKeys = ["day", "startNode", "startWeek", "type", "tableId", "id"],
         indices = [Index(value = ["id", "tableId"], unique = false)])

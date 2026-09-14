@@ -18,7 +18,6 @@ import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.Utils
 import com.Tangle.timetable.utils.getPrefer
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.fragment_export_settings.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

@@ -8,7 +8,6 @@ import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseBlurTitleActivity
 import com.Tangle.timetable.utils.Utils
 import es.dmoral.toasty.Toasty
-import kotlinx.android.synthetic.main.activity_intro_young.*
 
 class IntroYoungActivity : BaseBlurTitleActivity() {
     override val layoutId: Int

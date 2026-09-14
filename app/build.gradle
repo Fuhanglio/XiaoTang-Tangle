@@ -2,15 +2,15 @@ apply plugin: 'com.android.application'
 
 apply plugin: 'kotlin-android'
 
-apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-parcelize'
 
 apply plugin: 'kotlin-kapt'
 
 apply plugin: "androidx.navigation.safeargs.kotlin"
 
-configurations {
+configurations.all {
     // referenced in some portable lib. use android internal instead
-    compile.exclude group: 'commons-logging'
+    exclude group: 'commons-logging'
 }
 
 // 项目内固定的调试签名密钥。
@@ -27,9 +27,8 @@ configurations {
 def fixedDebugKeyStore = rootProject.file('keystore/xiaotang.jks')
 
 android {
-    androidExtensions {
-        experimental = true
-    }
+    // AGP 8 起，AndroidManifest 的 package 属性不再支持，改由 namespace 指定（R 类包名）。
+    namespace 'com.Tangle.timetable'
     signingConfigs {
         config {
             keyAlias 'yzune'
@@ -46,7 +45,7 @@ android {
             }
         }
     }
-    compileSdkVersion 29
+    compileSdk 34
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -54,39 +53,15 @@ android {
     flavorDimensions "versionCode"
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 29
+        targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 134
-        versionName "3.665"
+        versionCode 135
+        versionName "3.666"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
-        packagingOptions {
-            exclude 'META-INF/library_release.kotlin_module'
-
-            // prevent duplicate files
-            exclude 'META-INF/DEPENDENCIES.txt'
-            exclude 'META-INF/LICENSE.txt'
-            exclude 'META-INF/NOTICE.txt'
-            exclude 'META-INF/NOTICE'
-            exclude 'META-INF/LICENSE'
-            exclude 'META-INF/DEPENDENCIES'
-            exclude 'META-INF/notice.txt'
-            exclude 'META-INF/license.txt'
-            exclude 'META-INF/dependencies.txt'
-            exclude 'META-INF/LGPL2.1'
-            exclude 'META-INF/ASL2.0'
-
-            //!!! android buildToolsVersion 19.0.3 does not support exclude with wildcards yet :-(
-            exclude('org/apache/commons/codec/language/bm/*.txt')
-
-            exclude 'lib/*/libRSSupport.so'
-            exclude 'lib/*/librsjni.so'
-            exclude 'lib/*/librsjni_androidx.so'
-        }
         ndk {
             // 选择要添加的对应cpu类型的.so库。
             abiFilters 'armeabi-v7a', "arm64-v8a", "x86"
-            // 还可以添加 'armeabi-v7a', 'armeabi-v8a','x86', 'x86_64', 'mips', 'mips64'
         }
     }
     buildTypes {
@@ -105,7 +80,32 @@ android {
             signingConfig signingConfigs.config
         }
     }
-    buildToolsVersion '29.0.3'
+    buildToolsVersion '34.0.0'
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/library_release.kotlin_module',
+                         'META-INF/DEPENDENCIES.txt',
+                         'META-INF/LICENSE.txt',
+                         'META-INF/NOTICE.txt',
+                         'META-INF/NOTICE',
+                         'META-INF/LICENSE',
+                         'META-INF/DEPENDENCIES',
+                         'META-INF/notice.txt',
+                         'META-INF/license.txt',
+                         'META-INF/dependencies.txt',
+                         'META-INF/LGPL2.1',
+                         'META-INF/ASL2.0',
+                         'org/apache/commons/codec/language/bm/*.txt',
+                         'lib/*/libRSSupport.so',
+                         'lib/*/librsjni.so',
+                         'lib/*/librsjni_androidx.so']
+        }
+    }
 
     productFlavors {
         google {
@@ -114,8 +114,6 @@ android {
             //AndroidManifest.xml中定义的meta-data标签,
             //需要和meta-data中的android:value="${CHANNEL}对应
             manifestPlaceholders = [CHANNEL: "google"]
-            //Build中生成一个字符用来区分不同渠道的不同策略
-            buildConfigField "String", "CHANNEL", "\"google\""
         }
         huawei {
             applicationId "com.Tangle.timetable"
@@ -123,14 +121,11 @@ android {
             //AndroidManifest.xml中定义的meta-data标签,
             //需要和meta-data中的android:value="${CHANNEL}对应
             manifestPlaceholders = [CHANNEL: "huawei"]
-            //Build中生成一个字符用来区分不同渠道的不同策略
-            buildConfigField "String", "CHANNEL", "\"huawei\""
         }
         normal {
             applicationId "com.Tangle.timetable"
             resValue "string", "app_name", "WakeUp课程表"
             manifestPlaceholders = [CHANNEL: "normal"]
-            buildConfigField "String", "CHANNEL", "\"normal\""
         }
     }
 
@@ -141,7 +136,7 @@ android {
 
 dependencies {
     def lifecycle_version = "2.2.0"
-    def room_version = "2.2.3"
+    def room_version = "2.6.1"
 
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.core:core-ktx:1.2.0'
@@ -151,7 +146,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation 'com.google.android.material:material:1.2.0-alpha04'
     implementation "androidx.lifecycle:lifecycle-extensions:$lifecycle_version"
-    implementation "androidx.work:work-runtime:2.3.4"
+    // WorkManager 2.3.4（2020）内部用 PendingIntent 时无可变性标志，targetSdk31+ 会崩，升到 2.9.0
+    implementation "androidx.work:work-runtime:2.9.0"
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
     implementation "androidx.room:room-runtime:$room_version"
@@ -186,18 +182,12 @@ dependencies {
     // 全部识别在本机完成，不联网、不上传图片；训练数据在 assets/tessdata 下，首次运行时释放到私有目录。
     //
     // 为什么不用 Maven 坐标（cz.adaptech.tesseract4android:tesseract4android:4.8.0）：
-    // 官方 4.8.0 的 AAR 里 class 文件是 Java 17 字节码（major 61），而本项目 AGP 3.5.3（2019 年）
+    // 官方 4.8.0 的 AAR 里 class 文件是 Java 17 字节码（major 61），而本项目早期 AGP（2019 年）
     // 只认到 Java 8（major 52），Jetifier 转换该 AAR 时会直接崩溃
     // （Failed to transform ... using Jetifier. Reason: null），blacklist 也绕不过（失败发生在
     // processed-jar 阶段）。该库源码只用 Java 8 级 API，所以改用 JDK 8 重编译了它的源码，
     // 产物为 app/libs/tesseract4android-4.8.0-jdk8.jar（42 个类，major 52），
     // native 库原样取自官方 AAR 的 jni/ 目录，放在 app/src/main/jniLibs/ 下。
     // jar 由上面的 fileTree(include: ['*.jar'], dir: 'libs') 自动引入，无需单独声明。
-    // 升级该库时注意：仍要保证字节码不超过 Java 8。
+    // 注意：该 jar 为 Java 8 字节码，在 JDK 17 工具链下依然可用。
 }
-
-
-
-
-
-

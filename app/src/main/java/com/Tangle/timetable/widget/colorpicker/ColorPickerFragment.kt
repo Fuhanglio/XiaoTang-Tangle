@@ -14,7 +14,6 @@ import androidx.annotation.ColorInt
 import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.FragmentActivity
 import com.Tangle.timetable.R
-import kotlinx.android.synthetic.main.fragment_color_picker.*
 import splitties.resources.color
 
 class ColorPickerFragment : BaseDialogFragment(), ColorPickerView.OnColorChangedListener, TextWatcher {
