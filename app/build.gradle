@@ -55,8 +55,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 136
-        versionName "3.667"
+        versionCode 137
+        versionName "3.668"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         ndk {
@@ -110,21 +110,21 @@ android {
     productFlavors {
         google {
             applicationId "com.Tangle.timetable.pro"
-            resValue "string", "app_name", "WakeUp课程表Pro"
+            resValue "string", "app_name", "小唐Tangle课程表Pro"
             //AndroidManifest.xml中定义的meta-data标签,
             //需要和meta-data中的android:value="${CHANNEL}对应
             manifestPlaceholders = [CHANNEL: "google"]
         }
         huawei {
             applicationId "com.Tangle.timetable"
-            resValue "string", "app_name", "WakeUp课程表"
+            resValue "string", "app_name", "小唐Tangle课程表"
             //AndroidManifest.xml中定义的meta-data标签,
             //需要和meta-data中的android:value="${CHANNEL}对应
             manifestPlaceholders = [CHANNEL: "huawei"]
         }
         normal {
             applicationId "com.Tangle.timetable"
-            resValue "string", "app_name", "WakeUp课程表"
+            resValue "string", "app_name", "小唐Tangle课程表"
             manifestPlaceholders = [CHANNEL: "normal"]
         }
     }
