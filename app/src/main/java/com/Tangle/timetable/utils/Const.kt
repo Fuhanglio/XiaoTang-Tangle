@@ -19,7 +19,6 @@ object Const {
     const val REQUEST_CODE_ADD_COURSE = 108
 
     /** 申请日历读写权限（同步课表到系统日历用） */
-    const val REQUEST_CODE_CALENDAR_PERMISSION = 109
 
     /** 图片导入课表：选择课表图片 */
     const val REQUEST_CODE_IMPORT_IMAGE = 110
@@ -66,8 +65,6 @@ object Const {
     const val KEY_WIDGET_CACHE = "widget_today_cache"
 
     /** 上一次「同步到系统日历」选中的日历 id，-1 表示还没选过 */
-    const val KEY_SYNC_CALENDAR_ID = "sync_calendar_id"
     /** v132 起记忆「authority|id」组合键，避免不同日历库同 id 撞号写错日历 */
-    const val KEY_SYNC_CALENDAR_KEY = "sync_calendar_key"
 
 }

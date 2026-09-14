@@ -74,9 +74,6 @@ val ExportSettingsFragment.tv_export: com.google.android.material.button.Materia
 val ExportSettingsFragment.tv_export_ics: com.google.android.material.button.MaterialButton
     get() = findViewCompat(R.id.tv_export_ics)
 
-val ExportSettingsFragment.tv_sync_calendar: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.tv_sync_calendar)
-
 val ImportChooseFragment.ib_close: androidx.appcompat.widget.AppCompatImageView
     get() = findViewCompat(R.id.ib_close)
 
