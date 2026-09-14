@@ -25,3 +25,4 @@ app/release/
 
 # 本地构建日志
 build_log*.txt
+build_v*.log

@@ -27,13 +27,15 @@
         tools:ignore="GoogleAppIndexingWarning"
         tools:replace="android:allowBackup"
         tools:targetApi="n">
-        <activity android:name=".settings.SettingsHostActivity"></activity>
+        <activity android:name=".settings.SettingsHostActivity"
+            android:exported="false"></activity>
         <activity
             android:name=".widget.PermissionGuideActivity"
             android:exported="false"
             android:label="权限设置" />
         <activity
             android:name=".suda_life.SudaLifeActivity"
+            android:exported="false"
             android:label="苏大生活" />
 
         <meta-data
@@ -42,6 +44,7 @@
 
         <activity
             android:name=".schedule_import.LoginWebActivity"
+            android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter
                 android:label="导入到课程表"
@@ -73,22 +76,27 @@
         </activity>
         <activity
             android:name=".schedule.ScheduleActivity"
+            android:exported="false"
             android:configChanges="uiMode|orientation|screenSize|keyboardHidden|screenLayout" />
         <activity
             android:name=".course_add.AddCourseActivity"
+            android:exported="false"
             android:label="添加课程"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".settings.SettingsActivity"
+            android:exported="false"
             android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
             android:label="设置" />
         <activity
             android:name=".settings.TimeSettingsActivity"
+            android:exported="false"
             android:label="选择时间表" />
 
         <receiver
             android:name=".schedule_appwidget.ScheduleAppWidget"
+            android:exported="true"
             android:label="一周课程">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -101,9 +109,11 @@
 
         <activity
             android:name=".intro.AboutActivity"
+            android:exported="false"
             android:label="关于" />
         <activity
             android:name=".SplashActivity"
+            android:exported="true"
             android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -113,17 +123,21 @@
         </activity>
         <activity
             android:name=".schedule_manage.ScheduleManageActivity"
+            android:exported="false"
             android:label="多课表管理" />
         <activity
             android:name=".schedule_settings.ScheduleSettingsActivity"
+            android:exported="false"
             android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
             android:label="课表设置" />
         <activity
             android:name=".schedule_settings.BirthdayReminderActivity"
+            android:exported="false"
             android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
             android:label="生日提醒" />
         <activity
             android:name=".schedule_appwidget.WeekScheduleAppWidgetConfigActivity"
+            android:exported="true"
             android:label="提示">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
@@ -132,6 +146,7 @@
 
         <receiver
             android:name=".today_appwidget.TodayCourseAppWidget"
+            android:exported="true"
             android:label="当天课程">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -144,6 +159,7 @@
 
         <receiver
             android:name=".next_appwidget.NextCourseAppWidget"
+            android:exported="true"
             android:label="下一节课">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -174,9 +190,11 @@
 
         <activity
             android:name=".schedule_import.SchoolListActivity"
+            android:exported="false"
             android:label="选择学校" />
         <activity
             android:name=".intro.IntroYoungActivity"
+            android:exported="false"
             android:label="咩咩" />
     </application>
 
