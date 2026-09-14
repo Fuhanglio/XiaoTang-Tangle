@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.util.Log
 import android.content.Intent
 import android.util.TypedValue
 import android.view.View
@@ -32,6 +33,10 @@ fun BroadcastReceiver.goAsync(
     coroutineScope.launch {
         try {
             block()
+        } catch (t: Throwable) {
+            // 关键保险：刷新里的任何异常都不能变成未捕获异常杀掉进程，
+            // 否则小部件会停在布局默认的「加载中…」，直到下一个触发点才自愈
+            Log.e("WidgetAsync", "widget refresh failed", t)
         } finally {
             // Always call finish(), even if the coroutineScope was cancelled
             result.finish()
@@ -222,6 +227,7 @@ object AppWidgetUtils {
      * - manual=true：iv_next/iv_back 的临时查看（强制显示 nextDay 指定的一天）。
      */
     fun refreshTodayWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextDay: Boolean = false, manual: Boolean = false) {
+        try {
         val mRemoteViews = RemoteViews(context.packageName, R.layout.today_course_app_widget)
 
         val smart = WidgetData.getSmartDayPlan(context, tableBean)
@@ -530,6 +536,27 @@ object AppWidgetUtils {
         mRemoteViews.setOnClickPendingIntent(R.id.iv_back, backPi)
 
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
+        } catch (t: Throwable) {
+            // 渲染抛异常时也要把布局默认的「加载中…」顶掉：推一张最小空态卡，
+            // 等下一次闹钟 / 亮屏 / 30 分钟兜底触发时再自愈
+            try {
+                val rv = RemoteViews(context.packageName, R.layout.today_course_app_widget)
+                rv.setTextViewText(R.id.tv_headerTitle, "今日课程")
+                rv.setTextViewText(R.id.tv_headerSub, "刷新失败，点这里重试")
+                for (rid in intArrayOf(R.id.row_0, R.id.row_1, R.id.row_2, R.id.row_3,
+                        R.id.grow_0, R.id.grow_1, R.id.grow_2, R.id.ll_birthday)) {
+                    rv.setViewVisibility(rid, View.GONE)
+                }
+                rv.setViewVisibility(R.id.tv_emptyAction, View.VISIBLE)
+                val refreshPi = PendingIntent.getBroadcast(context, 4,
+                        Intent(context, WidgetUpdateReceiver::class.java).setAction(WidgetScheduler.ACTION_REFRESH),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                rv.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
+                appWidgetManager.updateAppWidget(appWidgetId, rv)
+            } catch (t2: Throwable) {
+                // 兜底也失败就只记日志，等下一次触发
+            }
+        }
     }
 
     /**
