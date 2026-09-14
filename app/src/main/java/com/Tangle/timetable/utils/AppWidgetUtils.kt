@@ -464,7 +464,12 @@ object AppWidgetUtils {
                         mRemoteViews.setViewVisibility(endIds[i], View.GONE)
                         mRemoteViews.setViewVisibility(badgeIds[i], View.VISIBLE)
                         mRemoteViews.setTextColor(badgeIds[i], courseColor)
-                        mRemoteViews.setInt(badgeIds[i], "setColorFilter",
+                        // ★ 根因修复（v142）：row_badge_* 是 TextView，而 TextView 没有 setColorFilter(int)。
+                        // RemoteViews 的动作要延迟到桌面进程里用反射执行，方法不存在时 launcher 应用
+                        // 整张卡失败 → 系统显示「载入窗口小部件时出现问题」、点击失效，直到下一次
+                        // 不含该动作的刷新（下课）才恢复。这正是「只在上课时出现」的原因。
+                        // TextView 有 setBackgroundColor(int)，用它实现胶囊底色，任何 View 都支持。
+                        mRemoteViews.setInt(badgeIds[i], "setBackgroundColor",
                                 android.graphics.Color.argb(0x2E,
                                         android.graphics.Color.red(courseColor),
                                         android.graphics.Color.green(courseColor),

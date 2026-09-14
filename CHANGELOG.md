@@ -46,6 +46,7 @@ v104 把卡片改成静态行，但每一行的内容仍然是先用代码绘制
 | 129 | 3.660 | 修复 | v124~129 端到端代码审查收口：稳定性 + 安全五批修复一次性落地 |
 | 130 | 3.661 | 修复 | 修掉「负一屏课程卡没有课」：日历同步适配新版 ColorOS 私有日历库（com.coloros.calendar） |
 | 131 | 3.662 | 修复 | 同步日历时自动创建「小唐Tangle课表」本地日历（不再要求手机里先有可写日历）；修课名把教室名顶出格子；图片识别结果列表改两行显示 |
+| 142 | 3.673 | 修复 | **修「载入窗口小部件时出现问题」（上课时必现）**：`row_badge_*`（「正在上」胶囊）是 **TextView**，渲染进行中的课时对它调了 `setInt(viewId, "setColorFilter", …)` —— **TextView 没有该方法**，而 RemoteViews 的动作要延迟到桌面进程里反射执行，launcher 应用整张卡失败 → 系统显示错误占位、点击失效，直到下课（不再 ongoing、该动作不出现）才恢复。这解释了全部症状（只在上课时出现 / 下课后自愈 / App 自身日志与崩溃文件里毫无痕迹——异常发生在桌面进程里）。改为 TextView 也支持的 `setBackgroundColor`；全量审查过其余 `setInt` 反射目标（row_bg/row_bar/gcell_bg/gcell_bar 均为 ImageView，setBackgroundResource/setBackgroundColor 均为 View 级方法），无同类问题 |
 | 141 | 3.672 | 修复 | v140 的「优先写进系统课程表日历」**没生效**：那个日历的 `calendar_access_level` 实测为 **NULL**，被「可写」条件 `CALENDAR_ACCESS_LEVEL >= 500` 静默过滤（`NULL >= 500` 为假）。现按 account_name 单独补进候选并排到最前。日历「课程表」视图与**负一屏日程卡同源**，故一并修复 |
 | 140 | 3.671 | 修复 | 三处遗留问题：① **系统日历「课程表」视图空白** —— ColorOS 日历的「课程表」只读它自带的本地日历（`account_name=oplus_course_default_calendar`、显示名「课程表」），我们写进了自建的「小唐Tangle课表」所以视图看不到；改为**只要该日历存在就优先写进它**，并在选择框/完成弹窗里标明 ② 导入方式文案 `从图片导入（识别课表截图）` → `图片导入` ③ 小部件刷新异常（`goAsync` 里被吞掉）新增落盘到「下载」目录，便于定位「载入窗口小部件时出现问题」 |
 | 139 | 3.670 | 修复 | **修「导入完成后直接闪退」**（真机 OnePlus 13 / Android 16 抓到 7 次堆栈：`java.util.NoSuchElementException` @ `ScheduleFragment.initWeekPanel`）：`idxList.filter{...}.minBy{...}` 在过滤结果为空时抛异常（全项目唯一的 minBy，紧随其后却写着 `if (pick != null)`，本意即 minByOrNull）——导入的课若整组都早于当前周就会命中。改为 `minByOrNull` |
