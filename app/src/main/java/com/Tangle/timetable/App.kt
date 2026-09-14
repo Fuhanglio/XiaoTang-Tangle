@@ -25,6 +25,11 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // 最先安装崩溃日志落盘，方便定位「打开即崩」这类问题
+        try {
+            com.Tangle.timetable.utils.CrashLogger.install(this)
+        } catch (e: Throwable) {
+        }
         Toasty.Config.getInstance()
                 .setToastTypeface(Typeface.DEFAULT_BOLD)
                 .setTextSize(12)

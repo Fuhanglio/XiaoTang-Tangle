@@ -29,6 +29,16 @@ object UpdateUtils {
     }
 
     suspend fun tranOldData(context: Context) {
+        // 整体兜底：原实现里 AppDatabase.getDatabase() 等 DB 访问写在 try 之外，
+        // 一旦抛异常会沿 SplashActivity 的协程冒泡，导致「一打开就崩」。
+        try {
+            tranOldDataInner(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "启动数据迁移异常（已忽略，不阻断启动）", e)
+        }
+    }
+
+    private suspend fun tranOldDataInner(context: Context) {
         if (context.getPrefer().getBoolean("has_intro", false) &&
                 !context.getPrefer().getBoolean("has_adjust", false)) {
             val tableData = TableBean(
