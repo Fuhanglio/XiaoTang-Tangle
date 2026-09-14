@@ -49,6 +49,9 @@ class WebViewLoginFragment : BaseFragment() {
     private var expandTried = false        // 本次导入是否已尝试过点「更多」（防止跳转后重复点击）
     private var pageProgress = 0           // 当前页面加载进度（0~100）
 
+    /** 站点校验锚点：本次会话首次加载的 URL 的 host（由 startVisit 记录） */
+    private var firstLoadHost: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.getString("url")?.let { url = it }
@@ -482,6 +485,7 @@ class WebViewLoginFragment : BaseFragment() {
         ll_error.visibility = View.GONE
         val url = if (et_url.text.toString().startsWith("http://") || et_url.text.toString().startsWith("https://"))
             et_url.text.toString() else "http://" + et_url.text.toString()
+        firstLoadHost = try { Uri.parse(url).host } catch (t: Throwable) { null }
         if (URLUtil.isHttpUrl(url) || URLUtil.isHttpsUrl(url)) {
             wv_course.loadUrl(url)
             context!!.getPrefer().edit {
@@ -492,45 +496,95 @@ class WebViewLoginFragment : BaseFragment() {
         }
     }
 
+    /**
+     * 取「可注册主域名」：把常见的二级公共后缀（edu.cn / com.cn 等）也算进去，
+     * 使同一学校的兄弟子域（jwxt.mtxy.edu.cn 与 cse.mtxy.edu.cn）互相认定为同站点。
+     */
+    private fun registrableDomain(host: String): String {
+        if (host.isEmpty()) return host
+        if (host.matches(Regex("^\\d+\\.\\d+\\.\\d+\\.\\d+$"))) return host
+        val parts = host.split(".")
+        if (parts.size <= 2) return host
+        val twoLevelSuffixes = setOf("edu.cn", "com.cn", "net.cn", "org.cn", "gov.cn", "ac.cn")
+        val last2 = parts.takeLast(2).joinToString(".")
+        return if (twoLevelSuffixes.contains(last2)) parts.takeLast(3).joinToString(".") else last2
+    }
+
+    /** 当前页 host 是否属于教务站点白名单（完全相同 / 互为子域 / 同一主域名） */
+    private fun hostAllowed(current: String, allowed: Collection<String>): Boolean {
+        if (current.isEmpty()) return false
+        val cur = current.lowercase()
+        val curDomain = registrableDomain(cur)
+        for (a in allowed) {
+            if (a.isEmpty()) continue
+            val h = a.lowercase()
+            if (cur == h) return true
+            if (cur.endsWith(".$h") || h.endsWith(".$cur")) return true
+            if (curDomain == registrableDomain(h)) return true
+        }
+        return false
+    }
+
+    /** 真正的导入动作（从原 showSource 里原样抽出，便于「仍要导入」分支复用） */
+    private fun doImport(html: String) {
+        launch {
+            try {
+                val result = viewModel.importSchedule(html)
+                Toasty.success(activity!!,
+                        "成功导入 $result 门课程(ﾟ▽ﾟ)/\n请在右侧栏切换后查看\n（页面源码已存至 Download/wakeup_import_ok_*.html，数据不全时可发给开发者）").show()
+                activity!!.setResult(RESULT_OK)
+                activity!!.finish()
+            } catch (e: Exception) {
+                Toasty.error(activity!!,
+                        "导入失败>_<\n${e.message}", Toast.LENGTH_LONG).show()
+                // 失败后恢复导入按钮，让用户可以重试
+                try {
+                    if (isAdded) fab_import.isEnabled = true
+                } catch (t: Throwable) {
+                }
+            }
+        }
+    }
+
     internal inner class InJavaScriptLocalObj {
         @JavascriptInterface
         fun showSource(html: String) {
-            // JS 桥对所有加载的页面生效，必须校验当前页 host 属于教务站点，
-            // 否则 WebView 内任意第三方页面都能静默触发「覆盖导入」污染课表数据
+            // JS 桥对所有加载的页面都会生效，因此要确认当前页属于教务站点，
+            // 避免 WebView 里的第三方页面静默触发「覆盖导入」污染课表数据。
+            // 修复说明：原实现取 schoolInfo[1]（其实字段顺序是 sortKey/name/url/type，索引 1 是校名），
+            // 且 schoolInfo 在全工程从未被赋值，导致白名单只剩「已保存的学校 URL」一条来源、
+            // 页面一跳转或换子域就误判为「非教务站点」而拒绝导入。
             val currentHost = try { Uri.parse(wv_course.url ?: "").host ?: "" } catch (t: Throwable) { "" }
-            val allowedHosts = mutableListOf<String>()
-            viewModel.schoolInfo.getOrNull(1)?.let {
-                try { Uri.parse(it).host?.let { h -> allowedHosts.add(h) } } catch (t: Throwable) {}
-            }
+            val allowedHosts = LinkedHashSet<String>()
+            firstLoadHost?.let { allowedHosts.add(it) }
             try {
-                context!!.getPrefer().getString(Const.KEY_SCHOOL_URL, null)?.let {
+                context?.getPrefer()?.getString(Const.KEY_SCHOOL_URL, null)?.let {
                     Uri.parse(it).host?.let { h -> allowedHosts.add(h) }
                 }
             } catch (t: Throwable) {}
-            val hostOk = currentHost.isNotEmpty() && allowedHosts.any { allowed ->
-                currentHost == allowed || currentHost.endsWith(".$allowed") || allowed.endsWith(".$currentHost")
+            // SchoolInfo(sortKey, name, url, type)，URL 在索引 2
+            viewModel.schoolInfo.getOrNull(2)?.let {
+                try { Uri.parse(it).host?.let { h -> allowedHosts.add(h) } } catch (t: Throwable) {}
             }
-            if (allowedHosts.isNotEmpty() && !hostOk) {
-                launch {
-                    Toasty.error(activity!!, "当前页面不是教务站点，已拒绝导入").show()
-                }
-                return
-            }
+            val hostOk = hostAllowed(currentHost, allowedHosts)
             launch {
-                try {
-                    val result = viewModel.importSchedule(html)
-                    Toasty.success(activity!!,
-                            "成功导入 $result 门课程(ﾟ▽ﾟ)/\n请在右侧栏切换后查看\n（页面源码已存至 Download/wakeup_import_ok_*.html，数据不全时可发给开发者）").show()
-                    activity!!.setResult(RESULT_OK)
-                    activity!!.finish()
-                } catch (e: Exception) {
-                    Toasty.error(activity!!,
-                            "导入失败>_<\n${e.message}", Toast.LENGTH_LONG).show()
-                    // 失败后恢复导入按钮，让用户可以重试
-                    try {
-                        if (isAdded) fab_import.isEnabled = true
-                    } catch (t: Throwable) {
+                if (allowedHosts.isNotEmpty() && !hostOk) {
+                    // 兜底：域名对不上时不硬拒绝，交给用户确认（并把实际域名显示出来，便于定位）
+                    val act = activity
+                    if (act == null || act.isFinishing) {
+                        return@launch
                     }
+                    MaterialAlertDialogBuilder(act)
+                            .setTitle("站点域名不一致")
+                            .setMessage("当前页面域名：" + currentHost.ifEmpty { "(未知)" } +
+                                    "\n教务站点域名：" + allowedHosts.joinToString("、") +
+                                    "\n\n可能是学校更换了域名，或页面跳转到了别的站点。如果确认这就是你的教务页面，可以继续导入。")
+                            .setPositiveButton("仍要导入") { _, _ -> doImport(html) }
+                            .setNegativeButton("取消", null)
+                            .setCancelable(false)
+                            .show()
+                } else {
+                    doImport(html)
                 }
             }
         }
