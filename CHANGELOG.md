@@ -46,6 +46,7 @@ v104 把卡片改成静态行，但每一行的内容仍然是先用代码绘制
 | 129 | 3.660 | 修复 | v124~129 端到端代码审查收口：稳定性 + 安全五批修复一次性落地 |
 | 130 | 3.661 | 修复 | 修掉「负一屏课程卡没有课」：日历同步适配新版 ColorOS 私有日历库（com.coloros.calendar） |
 | 131 | 3.662 | 修复 | 同步日历时自动创建「小唐Tangle课表」本地日历（不再要求手机里先有可写日历）；修课名把教室名顶出格子；图片识别结果列表改两行显示 |
+| 139 | 3.670 | 修复 | **修「导入完成后直接闪退」**（真机 OnePlus 13 / Android 16 抓到 7 次堆栈：`java.util.NoSuchElementException` @ `ScheduleFragment.initWeekPanel`）：`idxList.filter{...}.minBy{...}` 在过滤结果为空时抛异常（全项目唯一的 minBy，紧随其后却写着 `if (pick != null)`，本意即 minByOrNull）——导入的课若整组都早于当前周就会命中。改为 `minByOrNull` |
 | 138 | 3.669 | 修复 | **修「导入被误判为非教务站点」**（茅台学院等）：v132 加的 JS 桥站点校验取错了字段（`schoolInfo[1]` 实为校名，且 `schoolInfo` 全工程从未赋值），白名单只剩「已保存的 URL」一条来源，页面一跳转/换子域就误拒。现改为「首次加载 host + 已保存 host + 学校 URL（索引修正为 2）」并放宽为同一主域名即视为同站点（`jwxt.mtxy.edu.cn` ↔ `cse.mtxy.edu.cn` 互通，不会放到 `evil.com`）；万一仍对不上改为**弹框显示实际域名并允许用户确认导入**，不再硬拒绝 |
 | 137 | 3.668 | 上架准备 | **应用显示名统一为「小唐Tangle课程表」**（原 app_name=WakeUp课程表；应用内侧边栏大标题本就是「小唐Tangle」，v129 开发日志也记过改名意图，这次在代码里落实），google 渠道变体改「小唐Tangle课程表Pro」，并同步隐私政策草稿名称。注：包名 / 数据库名 wakeup / .wakeup_schedule 后缀 / 日历 UID 前缀 WakeUpSchedule- 均未动 |
 | 136 | 3.667 | 修复 | **修「一打开就崩溃」**：AndroidX 版本错配对齐（appcompat→1.6.1、material→1.9.0、core-ktx→1.9.0、constraintlayout→2.1.4、+recyclerview 1.3.2）；tranOldData 整体兜底（原 DB 访问在 try 之外，异常沿 SplashActivity 协程冒泡闪退）；SplashActivity 失败也进主页；新增 CrashLogger 写公共「下载」目录 |

@@ -193,7 +193,9 @@ class ScheduleFragment : BaseFragment() {
         }
         for (idxList in groups.values) {
             val pick = idxList.firstOrNull { data[it].inWeek(week) }
-                    ?: idxList.filter { data[it].endWeek >= week }.minBy { data[it].startWeek }
+                    // 注意：这里必须用 minByOrNull。minBy 在集合为空时会抛 NoSuchElementException，
+                    // 当某组课全部早于当前周（filter 结果为空）时就会在导入完成后的首次渲染直接闪退。
+                    ?: idxList.filter { data[it].endWeek >= week }.minByOrNull { data[it].startWeek }
             if (pick != null) keepIdx.add(pick)
         }
 
