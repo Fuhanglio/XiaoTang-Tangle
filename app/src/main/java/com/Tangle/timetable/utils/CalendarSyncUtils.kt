@@ -140,14 +140,37 @@ private const val COLOROS_COURSE_CALENDAR_NAME = "课程表"
         // 1) 先按「可写 + 可见」严格查，哪个库有结果就用哪个
         for (auth in AUTHORITY_CANDIDATES) {
             val list = queryCalendars(resolver, calendarsUri(auth), selection, args, auth)
-            if (list.isNotEmpty()) return list.sortedByDescending { it.isSystemCourseCalendar }
+            if (list.isNotEmpty()) return withSystemCourse(resolver, auth, list)
         }
         // 2) 兜底：有的 ROM 把本地日历的 access / visible 标得很低，放宽条件再扫一遍
         for (auth in AUTHORITY_CANDIDATES) {
             val list = queryCalendars(resolver, calendarsUri(auth), null, null, auth)
-            if (list.isNotEmpty()) return list.sortedByDescending { it.isSystemCourseCalendar }
+            if (list.isNotEmpty()) return withSystemCourse(resolver, auth, list)
         }
         return emptyList()
+    }
+
+    /**
+     * 把 ColorOS「课程表」专属日历补进候选，并排到最前。
+     *
+     * 为什么必须单独补：实测这个日历的 `calendar_access_level` 是 **NULL**，
+     * 而上面「可写 + 可见」的严格条件是 `CALENDAR_ACCESS_LEVEL >= ?`，
+     * `NULL >= 500` 在 SQL 里为假 —— 于是它会被静默过滤掉，
+     * 结果系统日历的「课程表」视图和负一屏的日程卡永远拿不到数据（v141 修）。
+     */
+    private fun withSystemCourse(resolver: ContentResolver, authority: String,
+                                 list: List<SyncCalendar>): List<SyncCalendar> {
+        if (list.any { it.isSystemCourseCalendar }) {
+            return list.sortedByDescending { it.isSystemCourseCalendar }
+        }
+        val sys = try {
+            queryCalendars(resolver, calendarsUri(authority), null, null, authority)
+                    .firstOrNull { it.isSystemCourseCalendar }
+        } catch (e: Exception) {
+            null
+        }
+        return if (sys == null) list.sortedByDescending { it.isSystemCourseCalendar }
+        else (listOf(sys) + list).distinctBy { it.id }
     }
 
     /** 按 Uri 查询日历列表；Provider 不存在（如非 OPPO 机型查私有库）会抛异常，静默换下一个 */
