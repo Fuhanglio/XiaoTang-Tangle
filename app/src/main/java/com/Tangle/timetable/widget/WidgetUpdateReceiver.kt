@@ -44,6 +44,8 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_DATE_CHANGED,
             Intent.ACTION_SCREEN_ON,
+            // 20:00 预告放行点：到点切「明天预告」，同时重排（把下一天的 20:00 闹钟接上）
+            WidgetScheduler.ACTION_PREVIEW_START,
             WidgetScheduler.ACTION_COURSE_START,
             WidgetScheduler.ACTION_COURSE_END -> goAsync {
                 refreshAllWidgets(context)

@@ -191,6 +191,7 @@
                 <action android:name="com.Tangle.timetable.action.COURSE_START" />
                 <action android:name="com.Tangle.timetable.action.COURSE_END" />
                 <action android:name="com.Tangle.timetable.action.COURSE_REMIND" />
+                <action android:name="com.Tangle.timetable.action.WIDGET_PREVIEW_START" />
                 <action android:name="com.Tangle.timetable.action.WIDGET_OPEN_APP" />
             </intent-filter>
         </receiver>

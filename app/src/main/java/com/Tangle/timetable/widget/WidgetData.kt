@@ -184,9 +184,22 @@ object WidgetData {
     enum class DayMode { TODAY, TOMORROW, LATER, BOTH_EMPTY }
 
     /**
+     * 课程预告（自动跳到明天及以后）的放行时刻：当天 20 点前一律停在今天。
+     * public 供 WidgetScheduler 注册同一时刻的放行闹钟（单一事实来源，别在两处各写一个 20）。
+     */
+    const val PREVIEW_START_HOUR = 20
+
+    /**
      * 智能日计划：今天还有没上完的课 → 显示今天；
      * 否则往后找最近一个有课的日子（跳过没课的日子，可跨周，最多 7 天）；
      * 7 天内都没有 → 空态（dayOffset = -1）。同步方法，可在 Receiver 中调用。
+     *
+     * 预告门槛（2026-09-15 加）：**当天 20 点前不允许预告**，只能停在今天。
+     * 原因：原实现只看「今天还有没有没上完的课」，当天本来就没课时 count 直接为 0，
+     * 于是上午/中午就把卡片切去了明天甚至更远，把「今日无课程 + 预设提示短语」的空态盖掉，
+     * 违背「当天无课要显示提示短语」的设计。加门槛后：
+     * - 20 点前：循环只在 d=0 上找，找不到就回落空态 → 显示提示短语；
+     * - 20 点后：当天课必然都已结束（count 为 0），才允许往后找最近有课的一天做预告。
      */
     data class DayPlan(
             val mode: DayMode,
@@ -214,9 +227,13 @@ object WidgetData {
             // 例：提前 2 天 = 只看今天和明天；提前 7 天 = 今天 ~ 6 天后。
             val previewDays = if (context.getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 7) == 2) 2 else 7
             val maxOffset = previewDays - 1
+            // 20 点前不给预告：canPreview = false 时循环退化为「只看今天」，
+            // 今天没课（或课上完）就自然落到下面的 offset < 0 空态，交给调用方显示提示短语。
+            val canPreview = Calendar.getInstance().get(Calendar.HOUR_OF_DAY) >= PREVIEW_START_HOUR
+            val scanMax = if (canPreview) maxOffset else 0
             var offset = -1
             var total = 0
-            for (d in 0..maxOffset) {
+            for (d in 0..scanMax) {
                 val list = getCoursesForOffset(context, d, t)
                 val count = if (d == 0) list.count { it.status != STATUS_FINISHED } else list.size
                 if (count > 0) {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  右上角「打开课表」小胶囊底（v146）。
+  高度定 26dp，比原来的 40dp 大按钮矮一圈，放进 header 行不会把标题区顶高。
+  深色文字底 = 主色深色（#1C1C1E），浅色模式下在白色卡面上对比度足够；
+  深色模式由 App 侧 setBackgroundColor 覆盖为半透明白，避免黑底压在深卡上看不见。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1C1C1E" />
+    <corners android:radius="13dp" />
+</shape>

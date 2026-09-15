@@ -39,20 +39,28 @@
                 android:textColor="#8E8E93" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/iv_refresh"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:padding="3dp"
-            android:contentDescription="@null"
-            android:src="@drawable/ic_widget_refresh" />
+        <!--
+          头部功能区（v153 定稿）：
+            顺序 = [翻页箭头] [打开课表] [Logo]
 
+          · 排列思路：
+            a) 「打开课表」胶囊与「箭头」都是可点操作，聚在中间偏左成一簇，
+               手指从右侧滑过来先碰到操作区，符合"操作聚簇"的习惯。
+            b) Logo 是**纯装饰、不可点**的品牌符号，放最右收边，作为整行的
+               视觉终止点；它的存在不打断操作区，也不与标题争夺左侧识别位。
+            c) 标题在左（识别）→ 操作居中（箭头 / 打开课表）→ 品牌收尾在右，
+               三段职责清晰，横向节奏是"重 → 中 → 轻"。
+
+          · 原 iv_refresh 已删除（用户要求）：刷新由闹钟 + 30 分钟兜底 + 点击卡片进行
+          · tv_openApp 取代原卡片底部的 tv_emptyAction 大按钮，改为头部小胶囊，
+            这样空态时底部整块空间腾出来给提示短语放大使用
+        -->
         <ImageView
             android:id="@+id/iv_next"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:layout_marginStart="8dp"
             android:padding="3dp"
+            android:layout_marginEnd="4dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_next" />
 
@@ -60,11 +68,48 @@
             android:id="@+id/iv_back"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:layout_marginStart="8dp"
             android:padding="3dp"
+            android:layout_marginEnd="4dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_back"
             android:visibility="gone" />
+
+        <!-- 「打开课表」胶囊（v153）：夹在箭头与 Logo 之间。
+             marginEnd 8dp 用于与右侧 Logo 拉开距离，避免胶囊边缘与小鹿鹿角粘连。 -->
+        <TextView
+            android:id="@+id/tv_openApp"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:layout_marginEnd="8dp"
+            android:gravity="center"
+            android:paddingStart="11dp"
+            android:paddingEnd="11dp"
+            android:maxLines="1"
+            android:text="打开课表"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/widget_open_app_bg" />
+
+        <!-- 品牌 Logo（v148 矢量小鹿 / v153 回到最右收边）：纯装饰，无点击事件。
+             尺寸 26×26dp：小鹿是"鹿角在上、身体在下"的竖直构图，24 单位视口里
+             图形本身只占中间约 21 单位（四周留了安全边距防裁切），所以 ImageView
+             要给到 26dp，鹿角与眼窝这些细节才认得出。
+             实测：再小（22dp）鹿角会糊成一团；再大（30dp+）会挤压左侧的胶囊与箭头，
+             卡片头部视觉失衡。
+             **右侧 marginEnd=6dp 是刻意留的**：卡片右上角是圆角（radius 24dp），
+             卡片 padding 只有 10dp，若不额外留白，小鹿会正好落在圆角的弧形收窄区里，
+             视觉上像"顶出框"（实测 2dp 不够、6dp 才明显好转）。
+             右侧一共留出 10dp(padding) + 6dp(margin) = 16dp 呼吸位，与圆角弧线错开。
+             左侧不设 margin：左边距由「打开课表」胶囊的 marginEnd 提供。
+             **绝不要对这个 ImageView 调 setColorFilter**，否则整只鹿会变成单色灰块。 -->
+        <ImageView
+            android:id="@+id/iv_logo"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_marginEnd="6dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_logo" />
     </LinearLayout>
 
     <!-- ============ 排列一：竖排列表（一行一门课，右侧显示上课时间） ============ -->
@@ -899,21 +944,100 @@
         </LinearLayout>
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tv_emptyAction"
-        android:layout_width="wrap_content"
-        android:layout_height="40dp"
-        android:layout_marginTop="12dp"
-        android:layout_gravity="start"
+    <!--
+      空态区（v146 新增，v147 立字体，v148 调气质）：当天/预告日无课时显示。
+      设计要点：
+        · 原来这里是一个 40dp 高的「打开课表」大按钮（tv_emptyAction），已经移到右上角胶囊，
+          底部整块空间被腾出来；
+        · 用 layout_weight=1 吃掉 header 以下的全部剩余高度，让内容在卡片里真正垂直居中；
+        · 短语放大到 24sp，远处一眼能看清；
+        · 上下各留 12dp 缓冲，避免贴边；maxLines=2 兜住偏长的短语不溢出。
+
+      字体气质（v148：面向大学生群体，要「自由随性、无拘无束」）
+      ==========================================================
+      先说清楚一个硬约束：**RemoteViews 不支持运行时改字体**（没有 setTypeface 这类
+      动作），字体只能写在布局 XML 里；Kotlin 侧只能改字号和颜色。所以气质全靠这里定。
+
+      ★ 字体：RemoteViews 根本用不了自定义字体（v148 踩透的坑，别再试）
+      ==============================================================
+      三条路都试过 / 查过，结论是**没有可行解**：
+
+      1. fontFamily="casual" （v147 方案）
+         casual 在本机映射到 ComingSoon.ttf，cursive 映射到 DancingScript-Regular.ttf，
+         两个都是纯拉丁字体、零汉字。中文整体回落系统黑体，气质完全没出来。
+
+      2. fontFamily="@font/yozai_widget" （v148 方案，已实测失败）
+         内嵌了悠哉手写体子集（3.77MB），aapt 确认资源确实打进了 APK、
+         fontFamily 也确实编译成了资源引用，但真机上**渲染结果仍是系统黑体**。
+         原因：Android 12 起，AppWidget 渲染在 launcher 进程，会**忽略**
+         layout 里的自定义 fontFamily（官方行为，非配置问题）；部分国产 ROM
+         的旧版本同样如此。setTypeface 也没有 @RemotableViewMethod 注解，
+         RemoteViews 侧无法设置字体。
+
+      3. Canvas 画字进 ImageView（唯一理论可行方案，但这里不能用）
+         Typeface.createFromAsset → Paint → Canvas.drawText → Bitmap
+         → setImageViewBitmap。问题是小部件传输上限约 1MB，
+         24sp 的中文短语位图很容易把 updateAppWidget 整包拖超限，
+         导致**整个小部件更新被系统静默丢弃**（红线 2），得不偿失。
+
+      ★ 所以 v148 的最终做法：放弃改字体，转而把"随性"做在**排版**上
+      ==========================================================
+      字体改不了，但"自由随性、无拘无束"的气质可以靠版面传达：
+        · 字号拉到 24sp，够大够张扬，不局促；
+        · letterSpacing="0.03"（比 v147 的 0.06 收窄）：
+          v147 放太开，中文被拆成"课 没 了"一字一顿、反而生硬，
+          回到 0.03 让字自然连读，松弛但不散架；
+        · lineSpacingExtra="6dp"：行间留白，像随手写在本子上的行距；
+        · ll_empty 用 gravity=center + 上下 padding 12dp 造留白，
+          四周空出来，这是"松"感的主要来源；
+        · 不加粗、不加任何装饰，干净利落，不端着。
+
+      （附：若哪天想让中文也用上手写体，正确做法是在**主 App 界面**用
+        res/font + TextView#setTypeface 实现，小部件这条路走不通。）
+
+      配套（帮助"松"下来）：
+        · ll_empty 的 gravity=center + 上下 padding 12dp，让短语四周都是空的，
+          视觉上有"留白"，这是随性感的一半来源。
+        · tv_emptyHint 的小字跟着同族同气质，字号 12sp、字距 0.04，
+          与主短语拉开层级但不抢戏。
+    -->
+    <LinearLayout
+        android:id="@+id/ll_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="56dp"
+        android:orientation="vertical"
         android:gravity="center"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:text="打开课表"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/widget_empty_action_bg"
-        android:visibility="gone" />
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_emptyPhrase"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:letterSpacing="0.03"
+            android:maxLines="2"
+            android:lineSpacingExtra="6dp"
+            android:text="课没了，人还在"
+            android:textSize="24sp"
+            android:textColor="#1C1C1E" />
+
+        <TextView
+            android:id="@+id/tv_emptyHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:letterSpacing="0.02"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="12sp"
+            android:textColor="#8E8E93"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <!-- 今天课全上完后出现的生日提醒板块：一段写给未来自己/TA 的话 + 倒计时 -->
     <LinearLayout

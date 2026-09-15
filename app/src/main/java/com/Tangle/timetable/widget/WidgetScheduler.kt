@@ -28,11 +28,14 @@ object WidgetScheduler {
     const val ACTION_COURSE_START = "com.Tangle.timetable.action.COURSE_START"
     const val ACTION_COURSE_END = "com.Tangle.timetable.action.COURSE_END"
     const val ACTION_REMIND = "com.Tangle.timetable.action.COURSE_REMIND"
+    /** 20:00 课程预告放行点：到点刷新一次，让卡片从「今天」切到「预告」 */
+    const val ACTION_PREVIEW_START = "com.Tangle.timetable.action.WIDGET_PREVIEW_START"
 
     private const val RC_RECOMPUTE = 1000
     private const val RC_BASE_START = 2000
     private const val RC_BASE_END = 4000
     private const val RC_BASE_REMIND = 6000
+    private const val RC_PREVIEW_START = 8000
 
     /** 单日闹钟槽位上限：一天最多 12 节课足够覆盖，取消旧闹钟时按这个范围扫 */
     private const val MAX_COURSE_ALARMS = 32
@@ -55,8 +58,32 @@ object WidgetScheduler {
     fun scheduleAll(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         scheduleDailyRecompute(context, am)
+        schedulePreviewStart(context, am)
         scheduleCourseAlarms(context, am)
         enqueueFallbackWork(context)
+    }
+
+    /**
+     * 当天 20:00 的预告放行闹钟：
+     * 20 点前今日卡停在「今天」，到点必须主动刷一次，卡片才会切到「第二天预告」。
+     * 不注册的话只能等每 30 分钟的兜底 Worker（最坏晚约半小时才翻）。
+     * 已过 20 点则排到明天 20:00（每天 20:00 都会由 ACTION_RECOMPUTE 或本闹钟自身重排）。
+     */
+    private fun schedulePreviewStart(context: Context, am: AlarmManager) {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, WidgetData.PREVIEW_START_HOUR)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            // 今天 20:00 已过 → 排到明天 20:00
+            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+        }
+        val pi = PendingIntent.getBroadcast(
+                context, RC_PREVIEW_START,
+                Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_PREVIEW_START),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
     }
 
     /** 每天 00:05 重算（跨天后重建当天闹钟） */

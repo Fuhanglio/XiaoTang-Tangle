@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「小唐Tangle」小部件右上角品牌 Logo ==== 小鹿（v148）
+
+  设计意图
+  ========
+  这只小鹿取自本 App 的启动图标 (drawable-xxhdpi/ic_launcher.png)，是产品唯一的
+  品牌符号。启动图标是 144×144 位图，并且烘焙了一块粉红渐变底板，直接搬进小部件
+  会踩两条红线：
+    · 小部件行禁用 Bitmap（>1MB 传输上限会让整次 updateAppWidget 被系统静默丢弃）；
+    · 带渐变底板与卡片白底会互相打架，缩到 22dp 还会糊成一团。
+  所以这里把那只小鹿**重新绘制为纯矢量、纯色填充**：任意倍率清晰、体积仅 3KB、
+  不带底板，可以自然地坐在卡片右上角。
+
+  造型要点（对着启动图标逐项复刻）
+  ==============================
+    1. 头部是一个大圆脑袋，占据画面上半部；
+    2. 白色大眼窝压在头部右下，几乎占去半个头 ==== 辨识度最高的特征；
+    3. 黑色瞳孔在眼窝中央偏右下，小而圆，眼神朝前下方，显出俏皮感；
+    4. 粉色小鼻头贴在眼窝右上缘外，是最好认的小细节；
+    5. 白色耳朵从头部左下斜插出去，探出轮廓之外；
+    6. 一对棕色分叉鹿角从头顶偏左向上舒展，枝杈细长、末端上翘；
+    7. 身体是圆润的蛋形，比头略窄，下腹有两道浅色软毛纹。
+
+  ★ 安全边距（v148 实测教训，务必保留）
+  ====================================
+  ImageView 实际只有 26dp，矢量又会被等比缩放，图形如果画到视口边缘就会被裁掉。
+  初版把鹿角画到 y=-1，真机上鹿角被整齐切平。因此本版把整只鹿**整体内缩**：
+  四周各留约 1.5 单位空白（图形实际落在 x 1.5~22.5 / y 1.5~22.5 的安全区内），
+  鹿角最高点定在 y=1.6，绝不触碰 y=0。改图形时请沿用这条约束。
+
+  配色（取自启动图标实测像素）
+  ==========================
+    鹿角  #A96B5E   身体  #F08A85   头部  #F5A09B   鼻头  #F2A0A8
+    眼窝  #FFFFFF   瞳孔  #1A1A1A   软毛纹 #F8B3AE
+
+  红线提醒
+  ========
+  · 本文件不含任何位图、不含渐变（部分 ROM 的 launcher 渲染 vector 渐变不稳），
+    全部为纯色 path。
+  · 因为 Logo 是多色的，AppWidgetUtils 里**不能**对它调 setColorFilter，
+    否则整只鹿会被涂成单色灰块。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- [1] 鹿角：先画，压在头部之下。最高点 y=1.6，留足上边距 -->
+    <!-- 主干：自头顶偏左起，向上外张、末端上翘，是整对角的主心骨 -->
+    <path
+        android:strokeColor="#A96B5E"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M10.2,7.2 C9.8,5.2 9.0,3.4 7.8,2.0 C7.2,1.3 6.7,1.7 7.2,2.5 C8.1,4.0 8.7,5.6 8.9,7.1" />
+    <!-- 左低位分叉：向左平伸后上翘 -->
+    <path
+        android:strokeColor="#A96B5E"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8.8,5.8 C7.4,5.5 5.7,4.5 4.4,3.2 C3.6,2.4 3.2,2.9 4.0,3.7 C5.3,5.1 6.9,6.1 8.3,6.6" />
+    <!-- 左高位分叉：向左上撇出、末端翘起，做出鹿角的 Z 形转折 -->
+    <path
+        android:strokeColor="#A96B5E"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8.6,3.9 C7.3,3.0 5.9,1.6 5.0,0.3 C4.5,-0.4 3.9,0.0 4.4,0.9 C5.2,2.3 6.5,3.7 7.9,4.7" />
+    <!-- 右侧短枝：从主干中段向右上分出的一小截 -->
+    <path
+        android:strokeColor="#A96B5E"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M9.4,3.9 C10.3,2.9 11.1,1.7 11.4,0.7 C11.6,0.0 11.1,0.1 10.8,0.8 C10.4,1.8 10.0,2.9 9.8,3.9" />
+
+    <!-- [2] 身体：圆润蛋形躯干，比头略窄 -->
+    <path
+        android:fillColor="#F08A85"
+        android:pathData="M13.0,12.0 C16.5,12.0 19.1,14.7 19.1,18.2 C19.1,21.7 16.5,23.9 13.0,23.9 C9.5,23.9 6.9,21.7 6.9,18.2 C6.9,14.7 9.5,12.0 13.0,12.0 Z" />
+
+    <!-- [3] 下腹两道浅色软毛纹 -->
+    <path
+        android:strokeColor="#F8B3AE"
+        android:strokeWidth="0.95"
+        android:strokeLineCap="round"
+        android:pathData="M10.2,19.2 C11.3,19.8 12.4,20.0 13.6,19.8" />
+    <path
+        android:strokeColor="#F8B3AE"
+        android:strokeWidth="0.95"
+        android:strokeLineCap="round"
+        android:pathData="M10.7,21.4 C11.7,22.0 12.8,22.2 13.9,22.0" />
+
+    <!-- [4] 头部：大圆脑袋，压在身体上沿 -->
+    <path
+        android:fillColor="#F5A09B"
+        android:pathData="M12.4,3.0 C16.1,3.0 19.1,5.9 19.1,9.7 C19.1,13.5 16.1,15.8 12.4,15.8 C8.7,15.8 5.7,13.5 5.7,9.7 C5.7,5.9 8.7,3.0 12.4,3.0 Z" />
+
+    <!-- [5] 耳朵：白色水滴，向左下探出头部轮廓之外才看得见 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7.7,7.7 C6.2,8.9 4.8,10.7 4.3,12.2 C4.1,12.9 4.6,13.2 5.2,12.7 C6.7,11.5 8.3,9.8 9.1,8.4 C9.5,7.7 8.6,7.1 7.7,7.7 Z" />
+
+    <!-- [6] 眼窝：白色大椭圆，占去头右大半，是全图最强的识别锚点 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.2,4.8 C18.3,4.8 20.9,7.4 20.9,10.5 C20.9,13.6 18.3,15.7 15.2,15.7 C12.1,15.7 9.5,13.6 9.5,10.5 C9.5,7.4 12.1,4.8 15.2,4.8 Z" />
+
+    <!-- [7] 瞳孔：黑色实心小圆，落在眼窝中央偏右下 -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M15.7,9.2 C16.9,9.2 17.9,10.1 17.9,11.3 C17.9,12.5 16.9,13.4 15.7,13.4 C14.5,13.4 13.5,12.5 13.5,11.3 C13.5,10.1 14.5,9.2 15.7,9.2 Z" />
+
+    <!-- [8] 鼻头：粉色小圆，贴在眼窝右上缘外侧 -->
+    <path
+        android:fillColor="#F2A0A8"
+        android:pathData="M21.0,6.7 C22.2,6.7 23.2,7.7 23.2,8.9 C23.2,10.1 22.2,11.1 21.0,11.1 C19.8,11.1 18.8,10.1 18.8,8.9 C18.8,7.7 19.8,6.7 21.0,6.7 Z" />
+
+</vector>

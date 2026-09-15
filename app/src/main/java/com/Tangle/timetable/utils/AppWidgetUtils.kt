@@ -303,7 +303,9 @@ object AppWidgetUtils {
                 offset > 1 -> "这天没有课哦"
                 else -> "今日无课程"
             })
-            mRemoteViews.setTextViewText(R.id.tv_headerSub, WidgetData.getIdlePhrase(context))
+            // v146：提示短语已挪到卡片中部的 ll_empty 大字区（v148 起 24sp 居中、casual 手写感字体），
+            // 副标题这里必须清空，否则同一句话会在标题下再小字重复一遍。
+            mRemoteViews.setTextViewText(R.id.tv_headerSub, "")
         } else {
             mRemoteViews.setTextViewTextSize(R.id.tv_headerTitle, TypedValue.COMPLEX_UNIT_SP, 15f)
             val nStr = "$titleCount"
@@ -337,7 +339,9 @@ object AppWidgetUtils {
         // 操作图标颜色
         mRemoteViews.setInt(R.id.iv_next, "setColorFilter", subColor)
         mRemoteViews.setInt(R.id.iv_back, "setColorFilter", subColor)
-        mRemoteViews.setInt(R.id.iv_refresh, "setColorFilter", subColor)
+        // 右上角 Logo（v147）：这里是多彩的「小鹿」品牌符号，**不能**对它调 setColorFilter，
+        // 否则整只鹿会被涂成单色灰块（旧版 v146 就是灰的线条图标，所以当时涂了色）。
+        // 小鹿自带白色眼窝/耳朵，在白卡与深色卡上对比度都够，无需按主题改色。
 
         // 显示今天 → 出现"查看明天"；显示其它天 → 出现"返回今天"
         if (showingToday) {
@@ -521,17 +525,44 @@ object AppWidgetUtils {
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.ll_course, openPi)
-        // 空态按钮：同样先刷新再打开 App；显隐由本次有没有课决定
-        mRemoteViews.setOnClickPendingIntent(R.id.tv_emptyAction, openPi)
-        mRemoteViews.setViewVisibility(R.id.tv_emptyAction, if (empty) View.VISIBLE else View.GONE)
+        // 头部「打开课表」胶囊（v146 由原底部 tv_emptyAction 大按钮迁移而来；
+        // v153 定稿位置：夹在「翻页箭头」与「Logo」之间）：常驻显示，
+        // 不再随有没有课切换显隐，这样任何时候都有一个明确的手动入口。
+        // 功能与文字完全不变，只调展示顺序。
+        mRemoteViews.setOnClickPendingIntent(R.id.tv_openApp, openPi)
 
-        // 右上角刷新图标：立即更新（回到自动模式）
-        val refreshPi = PendingIntent.getBroadcast(context, 4,
-                Intent(context, WidgetUpdateReceiver::class.java).setAction(WidgetScheduler.ACTION_REFRESH),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        mRemoteViews.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
+        // 空态区（v146）：当天无课时，把提示短语放大居中显示。
+        // 原来是塞在 tv_headerSub 里的 11sp 小字，现在走独立区域，
+        // 字号 / 字距 / 行距由布局 XML 决定，代码侧只填文字与显隐，不碰字号字体。
+        //
+        // ⚠️ 关于「自定义字体」的最终结论（v150 查明，2026-09-15 真机复验）：
+        //   小部件**无法**使用任何自定义字体，这不是漏改，是平台硬限制，三条路全试过：
+        //     ① fontFamily="casual"  → 本机 fonts.xml 映射 ComingSoon.ttf，实测只有 227 个字符
+        //     ② fontFamily="cursive" → 映射 DancingScript-Regular.ttf，实测只有 559 个字符
+        //        （两者 CJK 区 U+4E00~U+9FFF 覆盖数均为 0，中文必然回落系统黑体）
+        //     ③ 内嵌 @font/yozai_widget（悠哉手写体子集 3.77MB，aapt 已确认进包、fontFamily
+        //        已编成资源引用）→ 真机仍渲染系统黑体。原因：Android 12 起 AppWidget 在
+        //        launcher 独立进程渲染，会忽略 layout 里的自定义 fontFamily；
+        //        且 RemoteViews 的 setTypeface **没有** @RemotableViewMethod 注解，代码侧也调不了。
+        //   唯一理论出路是把文字用 Canvas 画进 Bitmap 再 setImageViewBitmap，
+        //   但那会踩红线 2（>1MB 位图导致整次 updateAppWidget 被系统静默丢弃），故放弃。
+        //   → 字体文件已删除（回收 3.9MB 包体），「随性」气质改由排版承担：
+        //     24sp 大字 + letterSpacing 0.03 + lineSpacingExtra 6dp + 居中留白 + 不加粗。
+        // 有课时整块隐藏，把高度让给课程行。
+        mRemoteViews.setViewVisibility(R.id.ll_empty, if (empty) View.VISIBLE else View.GONE)
+        if (empty) {
+            mRemoteViews.setTextViewText(R.id.tv_emptyPhrase, WidgetData.getIdlePhrase(context))
+            mRemoteViews.setTextColor(R.id.tv_emptyPhrase, titleColor)
+        }
+
+        // v146：右上角刷新图标已按用户要求删除，刷新改由以下三条路径覆盖：
+        //   ① 每节课开始前 10 分钟 / 结束时刻的精确闹钟
+        //   ② 每日 20:00 的预告放行闹钟（WidgetScheduler.schedulePreviewStart）
+        //   ③ 30 分钟 WorkManager 兜底 + 点击卡片头部（pIntent）/点击「打开课表」
 
         // 手动临时查看明日/今日（闹钟触发的自动刷新会覆盖回智能模式）
+        // v153：iv_next / iv_back 在布局中移到最左侧（Logo 已回到最右收边），
+        // 但 id、点击行为、显隐逻辑与 PendingIntent 完全不变。
         val i = Intent(context, TodayCourseAppWidget::class.java)
         i.action = "WAKEUP_NEXT_DAY"
         val pi = PendingIntent.getBroadcast(context, 1, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -545,20 +576,22 @@ object AppWidgetUtils {
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
         } catch (t: Throwable) {
             // 渲染抛异常时也要把布局默认的「加载中…」顶掉：推一张最小空态卡，
-            // 等下一次闹钟 / 亮屏 / 30 分钟兜底触发时再自愈
+            // 等下一次闹钟 / 亮屏 / 30 分钟兜底触发时再自愈。
+            // v146：原来靠「空态大按钮 + 刷新图标」做重试入口，两者都已被删除；
+            // 现在改为：隐藏课程行/网格/生日块，显示 ll_empty 并把文字换成「刷新失败」，
+            // 点击头部标题即可触发刷新（pIntent 指向 App，进 App 会重新拉数据）。
             try {
                 val rv = RemoteViews(context.packageName, R.layout.today_course_app_widget)
                 rv.setTextViewText(R.id.tv_headerTitle, "今日课程")
-                rv.setTextViewText(R.id.tv_headerSub, "刷新失败，点这里重试")
+                rv.setTextViewText(R.id.tv_headerSub, "点这里重试")
                 for (rid in intArrayOf(R.id.row_0, R.id.row_1, R.id.row_2, R.id.row_3,
                         R.id.grow_0, R.id.grow_1, R.id.grow_2, R.id.ll_birthday)) {
                     rv.setViewVisibility(rid, View.GONE)
                 }
-                rv.setViewVisibility(R.id.tv_emptyAction, View.VISIBLE)
-                val refreshPi = PendingIntent.getBroadcast(context, 4,
-                        Intent(context, WidgetUpdateReceiver::class.java).setAction(WidgetScheduler.ACTION_REFRESH),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                rv.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
+                rv.setViewVisibility(R.id.ll_empty, View.VISIBLE)
+                rv.setTextViewText(R.id.tv_emptyPhrase, "刷新失败")
+                rv.setTextViewText(R.id.tv_emptyHint, "点卡片头部重试")
+                rv.setViewVisibility(R.id.tv_emptyHint, View.VISIBLE)
                 appWidgetManager.updateAppWidget(appWidgetId, rv)
             } catch (t2: Throwable) {
                 // 兜底也失败就只记日志，等下一次触发
