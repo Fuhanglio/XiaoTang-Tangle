@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- v160：radius 提到 20dp（≥ 胶囊高度一半），四角呈半圆的药丸形；
+     颜色由代码 setDrawableTint 动态上课程色（tint 保留本 shape 的圆角） -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="#FFFFFF" />
-    <corners android:radius="8dp" />
+    <corners android:radius="20dp" />
 </shape>

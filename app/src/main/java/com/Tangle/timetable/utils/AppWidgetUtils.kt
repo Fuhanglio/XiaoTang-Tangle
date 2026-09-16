@@ -479,16 +479,26 @@ object AppWidgetUtils {
                                 0.114 * android.graphics.Color.blue(courseColor)) / 255.0
                         val badgeText = if (lum > 0.6) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
                         mRemoteViews.setTextColor(badgeIds[i], badgeText)
-                        // ★ 根因修复（v142）：row_badge_* 是 TextView，而 TextView 没有 setColorFilter(int)。
-                        // RemoteViews 的动作要延迟到桌面进程里用反射执行，方法不存在时 launcher 应用
-                        // 整张卡失败 → 系统显示「载入窗口小部件时出现问题」、点击失效，直到下一次
-                        // 不含该动作的刷新（下课）才恢复。这正是「只在上课时出现」的原因。
-                        // TextView 有 setBackgroundColor(int)，用它实现胶囊底色，任何 View 都支持。
-                        mRemoteViews.setInt(badgeIds[i], "setBackgroundColor",
-                                android.graphics.Color.argb(0xF2,
-                                        android.graphics.Color.red(courseColor),
-                                        android.graphics.Color.green(courseColor),
-                                        android.graphics.Color.blue(courseColor)))
+                        // ★ v142 根因修复备忘：row_badge_* 是 TextView，不能用 setColorFilter(int)
+                        //   （方法不存在时 launcher 会应用整张卡失败）。
+                        // v160 药丸圆角：setBackgroundColor 只能产生直角底。API 31+ 用
+                        // 「outline 圆角 + clipToOutline 裁剪」把直角底裁成药丸形：
+                        //   setViewOutlinePreferredRadius（官方 addAction，API 31+）
+                        //   setClipToOutline（View 公开方法，带 @RemotableViewMethod，反射安全）
+                        // API 31 以下无此能力，保持直角实底（对比度由自适应字色保证）。
+                        val badgeBg = android.graphics.Color.argb(0xF2,
+                                android.graphics.Color.red(courseColor),
+                                android.graphics.Color.green(courseColor),
+                                android.graphics.Color.blue(courseColor))
+                        if (android.os.Build.VERSION.SDK_INT >= 31) {
+                            mRemoteViews.setInt(badgeIds[i], "setBackgroundColor", badgeBg)
+                            // 10dp ≈ 胶囊高度一半，四角呈半圆（超出部分系统自动压到半高）
+                            mRemoteViews.setViewOutlinePreferredRadius(badgeIds[i], 10f,
+                                    android.util.TypedValue.COMPLEX_UNIT_DIP)
+                            mRemoteViews.setBoolean(badgeIds[i], "setClipToOutline", true)
+                        } else {
+                            mRemoteViews.setInt(badgeIds[i], "setBackgroundColor", badgeBg)
+                        }
                     } else {
                         mRemoteViews.setViewVisibility(endIds[i], View.VISIBLE)
                         mRemoteViews.setViewVisibility(badgeIds[i], View.GONE)
