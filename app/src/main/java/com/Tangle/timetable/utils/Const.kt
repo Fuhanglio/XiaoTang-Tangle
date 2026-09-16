@@ -46,7 +46,7 @@ object Const {
     const val KEY_SCHEDULE_DETAIL_TIME = "schedule_detail_time"
     const val KEY_SHOW_DASHED_GRID = "show_dashed_grid"
 
-    /** 今日小部件「课程预告范围」：从今天起一共看几天，只允许 2 或 7（2 = 今天和明天） */
+    /** 今日小部件「课程预告范围」：从今天起一共看几天，只允许 2 或 7（2 = 今天和明天）；未配置时默认 2（v158） */
     const val KEY_WIDGET_PREVIEW_DAYS = "widget_preview_days"
 
     /** 今日小部件课程排列：0 = 竖排列表（一行一门课），1 = 紧凑两列（半宽并排，一行两门课） */

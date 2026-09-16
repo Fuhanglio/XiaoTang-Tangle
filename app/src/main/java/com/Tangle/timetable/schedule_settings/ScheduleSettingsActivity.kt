@@ -239,9 +239,9 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
     private fun todayLayoutText(): String =
             if (getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1) "紧凑两列" else "竖排列表"
 
-    /** 「课程预告范围」当前值文案：只允许 2 天或 7 天 */
+    /** 「课程预告范围」当前值文案：只允许 2 天或 7 天（v158 起默认 2 天） */
     private fun previewDaysText(): String =
-            if (getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 7) == 2) "提前 2 天" else "提前 7 天"
+            if (getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 2) == 2) "提前 2 天" else "提前 7 天"
 
     /** 「生日提醒」当前值文案：显示已设的月日，没设过就提示去设 */
     private fun birthdayText(): String =
@@ -421,7 +421,8 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
                 val options = arrayOf(
                         "提前 2 天：只看今天和明天",
                         "提前 7 天：看今天起 7 天内")
-                val current = if (getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 7) == 2) 0 else 1
+                // v158：未配置时默认选中「提前 2 天」（与渲染端 WidgetData 的默认值保持一致）
+                val current = if (getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 2) == 2) 0 else 1
                 MaterialAlertDialogBuilder(this)
                         .setTitle("课程预告范围")
                         .setSingleChoiceItems(options, current) { dialog, which ->

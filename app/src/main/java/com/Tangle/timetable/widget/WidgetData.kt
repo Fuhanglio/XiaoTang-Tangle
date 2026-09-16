@@ -225,7 +225,8 @@ object WidgetData {
             // 今天还有没上完的课 → 今天；否则往后找最近一个有课的日子（可跨周）。
             // 「提前 N 天」= 从今天起一共看 N 天，所以往后最多看 N-1 天。
             // 例：提前 2 天 = 只看今天和明天；提前 7 天 = 今天 ~ 6 天后。
-            val previewDays = if (context.getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 7) == 2) 2 else 7
+            // v158：未配置时默认按 2 天（与设置页 ScheduleSettingsActivity 的默认值保持一致）
+            val previewDays = if (context.getPrefer().getInt(Const.KEY_WIDGET_PREVIEW_DAYS, 2) == 2) 2 else 7
             val maxOffset = previewDays - 1
             // 20 点前不给预告：canPreview = false 时循环退化为「只看今天」，
             // 今天没课（或课上完）就自然落到下面的 offset < 0 空态，交给调用方显示提示短语。
