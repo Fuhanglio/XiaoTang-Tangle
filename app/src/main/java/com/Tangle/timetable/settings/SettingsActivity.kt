@@ -116,7 +116,9 @@ class SettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDial
         items.add(SwitchItem("开启上课提醒", getPrefer().getBoolean(Const.KEY_COURSE_REMIND, false),
                 "国产机型需允许后台运行，设置后可能需等待一段时间生效"))
         items.add(SeekBarItem("提前几分钟提醒", getPrefer().getInt(Const.KEY_REMINDER_TIME, 10), 0, 90, "分钟"))
-        items.add(SwitchItem("今日小部件隐藏已结束课程", getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, false),
+        // v157：默认值改为 true——「上完课自动从小卡片消失」是更符合直觉的默认行为，
+        // 关闭（置灰展示已结束课程）改为需要手动关闭才生效
+        items.add(SwitchItem("今日小部件隐藏已结束课程", getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, true),
                 "开启后已下课的课程从小部件消失，关闭则置灰"))
         items.add(SwitchItem("提醒通知常驻", getPrefer().getBoolean(Const.KEY_REMINDER_ON_GOING, false)))
 

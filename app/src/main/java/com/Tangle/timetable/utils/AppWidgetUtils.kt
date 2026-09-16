@@ -263,7 +263,8 @@ object AppWidgetUtils {
         val maxGridRows = ((cardHeightDp - 56) / 48).coerceIn(1, 3)
         val maxItems = if (compact) maxGridRows * 2 else maxRows
 
-        val hideEnded = context.getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, false)
+        // v157：与设置页同步改为默认 true——未手动配置时「当天课全上完后卡片转空态」默认生效
+        val hideEnded = context.getPrefer().getBoolean(Const.KEY_HIDE_ENDED_COURSE, true)
         val all = if (offset >= 0) WidgetData.getCoursesForOffset(context, offset, tableBean) else emptyList()
         val unfinished = all.filter { it.status != WidgetData.STATUS_FINISHED }
         // 优先展示进行中与未开始；当天已全部上完时，按设置决定是否退化为展示已结束的课
