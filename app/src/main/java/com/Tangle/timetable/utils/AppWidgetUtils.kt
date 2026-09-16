@@ -458,8 +458,11 @@ object AppWidgetUtils {
                     mRemoteViews.setTextViewText(infoIds[i], subText)
                     mRemoteViews.setTextColor(infoIds[i], subColor)
 
-                    // 右侧填时间：开始时间加粗，结束时间在下（进行中时换成「正在上」小胶囊）
-                    mRemoteViews.setTextViewText(timeIds[i], item.startText)
+                    // 右侧填时间：未开始/已结束的课显示开始时间；
+                    // v159 进行中的课改为显示下课（结束）时间——上课时刻已过去，
+                    // 用户此刻关心的是「几点下课」
+                    mRemoteViews.setTextViewText(timeIds[i],
+                            if (ongoing) item.endText else item.startText)
                     mRemoteViews.setTextColor(timeIds[i], nameColor)
                     mRemoteViews.setTextViewText(endIds[i], item.endText)
                     mRemoteViews.setTextColor(endIds[i], subColor)
@@ -468,14 +471,21 @@ object AppWidgetUtils {
                     if (ongoing) {
                         mRemoteViews.setViewVisibility(endIds[i], View.GONE)
                         mRemoteViews.setViewVisibility(badgeIds[i], View.VISIBLE)
-                        mRemoteViews.setTextColor(badgeIds[i], courseColor)
+                        // v159 对比度修复：旧实现字色与底色同为半透明课程色，
+                        // 浅色课程（如淡黄）时文字几乎隐形。现改为「课程色实底 +
+                        // 亮度自适应字色」：底色亮（淡色系）配深字，底色暗配白字。
+                        val lum = (0.299 * android.graphics.Color.red(courseColor) +
+                                0.587 * android.graphics.Color.green(courseColor) +
+                                0.114 * android.graphics.Color.blue(courseColor)) / 255.0
+                        val badgeText = if (lum > 0.6) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
+                        mRemoteViews.setTextColor(badgeIds[i], badgeText)
                         // ★ 根因修复（v142）：row_badge_* 是 TextView，而 TextView 没有 setColorFilter(int)。
                         // RemoteViews 的动作要延迟到桌面进程里用反射执行，方法不存在时 launcher 应用
                         // 整张卡失败 → 系统显示「载入窗口小部件时出现问题」、点击失效，直到下一次
                         // 不含该动作的刷新（下课）才恢复。这正是「只在上课时出现」的原因。
                         // TextView 有 setBackgroundColor(int)，用它实现胶囊底色，任何 View 都支持。
                         mRemoteViews.setInt(badgeIds[i], "setBackgroundColor",
-                                android.graphics.Color.argb(0x2E,
+                                android.graphics.Color.argb(0xF2,
                                         android.graphics.Color.red(courseColor),
                                         android.graphics.Color.green(courseColor),
                                         android.graphics.Color.blue(courseColor)))
