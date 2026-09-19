@@ -12,6 +12,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 object CourseUtils {
+
+    /** 颜色 Int 转 6 位 #RRGGBB：toHexString 在低色值（如 0x002FA7）时会产出不足 6 位的非法串，
+     *  存库后渲染层 Color.parseColor 直接抛 IllegalArgumentException，这里统一格式化补零 */
+    fun formatColor(color: Int): String = String.format("#%06X", 0xFFFFFF and color)
+
     fun getDayStr(weekDay: Int): String {
         return when (weekDay) {
             1 -> "周一"

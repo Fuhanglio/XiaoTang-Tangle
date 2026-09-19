@@ -103,7 +103,8 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         val gson = Gson()
         val list = gson.fromJson<List<CourseOldBean>>(json, object : TypeToken<List<CourseOldBean>>() {
         }.type)
-        val tableId = tableDao.getDefaultTableSync()?.id ?: return
+        // E：原 getDefaultTableSync() 会在主线程（ScheduleActivity onCreate launch）同步查库，改用 suspend 版本
+        val tableId = tableDao.getDefaultTable()?.id ?: return
         oldBean2CourseBean(list, tableId)
     }
 

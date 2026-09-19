@@ -203,16 +203,20 @@ class BirthdayReminderActivity : BaseBlurTitleActivity() {
 
     /** 保存后立刻刷新今日小部件，回到桌面就能看到 */
     private fun refreshTodayWidget() {
-        try {
-            val awm = AppWidgetManager.getInstance(this)
-            val table = AppDatabase.getDatabase(this).tableDao().getDefaultTableSync() ?: return
-            val ids = awm.getAppWidgetIds(ComponentName(this, TodayCourseAppWidget::class.java))
-            for (id in ids) {
-                AppWidgetUtils.refreshTodayWidget(this, awm, id, table)
+        // 刷新内部为同步 DB 查询，移到后台线程，不在保存按钮的主线程做 IO
+        val appContext = applicationContext
+        Thread {
+            try {
+                val awm = AppWidgetManager.getInstance(appContext)
+                val table = AppDatabase.getDatabase(appContext).tableDao().getDefaultTableSync() ?: return@Thread
+                val ids = awm.getAppWidgetIds(ComponentName(appContext, TodayCourseAppWidget::class.java))
+                for (id in ids) {
+                    AppWidgetUtils.refreshTodayWidget(appContext, awm, id, table)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        }.start()
     }
 
     override fun onDestroy() {

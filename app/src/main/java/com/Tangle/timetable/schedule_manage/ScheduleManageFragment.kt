@@ -21,6 +21,8 @@ import com.Tangle.timetable.bean.TableSelectBean
 import com.Tangle.timetable.utils.CalendarSyncUtils
 import com.Tangle.timetable.schedule_settings.ScheduleSettingsActivity
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import splitties.activities.start
 import splitties.dimensions.dip
 
@@ -116,8 +118,21 @@ class ScheduleManageFragment : BaseFragment() {
                             .setPositiveButton("删除") { _, _ ->
                                 launch {
                                     val tid = data[position].id
-                                    CalendarSyncUtils.deleteSyncedEventsAllProviders(
-                                            activity!!.applicationContext.contentResolver, tid)
+                                    // 删除默认课表保护：先把默认身份（type=1）转移给剩余课表，
+                                    // 否则删除后无默认表 → 主界面瘫痪、学校导入路径 Room 空结果集崩溃
+                                    if (data[position].type == 1) {
+                                        if (data.size <= 1) {
+                                            Toasty.error(context!!, "至少要保留一张课表哦，不能删除唯一的课表").show()
+                                            return@launch
+                                        }
+                                        val nextId = data.first { it.id != tid }.id
+                                        viewModel.changeDefaultTable(tid, nextId)
+                                    }
+                                    // E：日历 Provider 批量删除是同步 IO，移到后台线程执行
+                                    val resolver = activity!!.applicationContext.contentResolver
+                                    withContext(Dispatchers.Default) {
+                                        CalendarSyncUtils.deleteSyncedEventsAllProviders(resolver, tid)
+                                    }
                                     AppDatabase.getDatabase(activity!!.applicationContext)
                                             .appWidgetDao().deleteAppWidgetByInfo(tid.toString())
                                     viewModel.deleteTable(tid)

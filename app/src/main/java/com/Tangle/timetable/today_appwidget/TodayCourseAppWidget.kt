@@ -10,15 +10,12 @@ import com.Tangle.timetable.AppDatabase
 import com.Tangle.timetable.R
 import com.Tangle.timetable.bean.AppWidgetBean
 import com.Tangle.timetable.utils.*
-import java.util.*
 
 
 /**
  * Implementation of App Widget functionality.
  */
 class TodayCourseAppWidget : AppWidgetProvider() {
-
-    private var calendar = Calendar.getInstance()
 
     @SuppressLint("NewApi")
     override fun onReceive(context: Context, intent: Intent) {

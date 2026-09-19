@@ -35,6 +35,11 @@ class ScheduleManageViewModel(application: Application) : AndroidViewModel(appli
         tableDao.deleteTable(id)
     }
 
+    /** 删除默认课表前，先把默认身份转移给剩余课表，避免删除后无默认表 */
+    suspend fun changeDefaultTable(oldId: Int, newId: Int) {
+        tableDao.changeDefaultTable(oldId, newId)
+    }
+
     suspend fun clearTable(id: Int) {
         tableDao.clearTable(id)
     }

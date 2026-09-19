@@ -1,6 +1,9 @@
 package com.Tangle.timetable
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.util.Log
+import androidx.core.content.edit
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -8,6 +11,12 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.Tangle.timetable.bean.*
 import com.Tangle.timetable.dao.*
+import com.Tangle.timetable.utils.Const
+import com.Tangle.timetable.utils.getPrefer
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Database(entities = [CourseBaseBean::class, CourseDetailBean::class, AppWidgetBean::class, TimeDetailBean::class,
     TimeTableBean::class, TableBean::class],
@@ -22,15 +31,78 @@ abstract class AppDatabase : RoomDatabase() {
             if (INSTANCE == null) {
                 synchronized(AppDatabase::class.java) {
                     if (INSTANCE == null) {
+                        // B1：极老库（DB 1~6）在 fallback 重建前先做文件级备份，保留恢复机会
+                        backupLegacyDatabaseIfNeeded(context.applicationContext)
                         INSTANCE = Room.databaseBuilder(context.applicationContext,
                                 AppDatabase::class.java, "wakeup")
                                 .allowMainThreadQueries()
                                 .addMigrations(migration7to8)
+                                // 极老版本（DB 1~6）无逐级迁移：宁可重建数据库也不"打开即崩"
+                                .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6)
                                 .build()
                     }
                 }
             }
-            return INSTANCE!!
+            return INSTANCE ?: throw IllegalStateException(
+                    "AppDatabase.getDatabase() 未初始化，请先以非空 context 调用")
+        }
+
+        /**
+         * B1：老库（PRAGMA user_version 在 1~6）备份。
+         * 在 Room 打开/重建数据库之前，只读探测 wakeup 库文件版本，
+         * 命中老版本就把 wakeup / wakeup-wal / wakeup-shm 三个文件复制到
+         * getExternalFilesDir(null)/db_backup/wakeup_v<旧版本>_<时间戳>.db（含 -wal/-shm）。
+         * 任何一步失败都只记日志，绝不阻断启动；fallback 重建兜底保持不变。
+         */
+        private fun backupLegacyDatabaseIfNeeded(context: Context) {
+            try {
+                val dbFile = context.getDatabasePath("wakeup")
+                if (!dbFile.exists()) return
+                val oldVersion = readLegacyDbVersion(dbFile.absolutePath)
+                if (oldVersion !in 1..6) return
+                val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "db_backup")
+                if (!dir.exists()) dir.mkdirs()
+                val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA).format(Date())
+                val saved = File(dir, "wakeup_v${oldVersion}_${stamp}.db")
+                dbFile.copyTo(saved, overwrite = true)
+                // wal/shm 一并备份，缺哪个就跳过哪个
+                for (suffix in listOf("-wal", "-shm")) {
+                    val src = File(dbFile.parentFile, "wakeup$suffix")
+                    if (src.exists()) {
+                        try {
+                            src.copyTo(File(dir, saved.name + suffix), overwrite = true)
+                        } catch (e: Exception) {
+                            Log.w("AppDatabase", "备份 wakeup$suffix 失败（不影响主库备份）", e)
+                        }
+                    }
+                }
+                // 记录待提示标记：主界面首次启动据此弹一次性 AlertDialog
+                context.getPrefer().edit {
+                    putBoolean(Const.KEY_DB_OLD_VERSION_DETECTED, true)
+                    putString(Const.KEY_DB_BACKUP_PATH, saved.absolutePath)
+                }
+                Log.w("AppDatabase", "检测到老版本数据库 v$oldVersion，已备份到 ${saved.absolutePath}")
+            } catch (e: Exception) {
+                // 备份失败只记日志，不阻断启动
+                Log.e("AppDatabase", "老库备份失败（不阻断启动）", e)
+            }
+        }
+
+        /** 只读打开老库读 PRAGMA user_version；任何异常返回 -1（视为无需备份）。调用方负责场景，这里保证 close */
+        private fun readLegacyDbVersion(path: String): Int {
+            var db: SQLiteDatabase? = null
+            return try {
+                db = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
+                db.version
+            } catch (e: Exception) {
+                -1
+            } finally {
+                try {
+                    db?.close()
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
         }
 
         private val migration7to8: Migration = object : Migration(7, 8) {

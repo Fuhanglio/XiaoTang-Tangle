@@ -46,6 +46,13 @@ object Const {
     const val KEY_SCHEDULE_DETAIL_TIME = "schedule_detail_time"
     const val KEY_SHOW_DASHED_GRID = "show_dashed_grid"
 
+    /** 老库迁移备份（B1）：检测到 DB 1~6 并完成文件备份后置位，主界面据此弹一次性恢复提示 */
+    const val KEY_DB_OLD_VERSION_DETECTED = "db_old_version_detected"
+    /** 老库迁移备份文件路径（提示弹窗里展示给用户） */
+    const val KEY_DB_BACKUP_PATH = "db_backup_path"
+    /** 一次性迁移提示弹窗已确认（用户点过「知道了」后置位，之后不再弹） */
+    const val KEY_DB_MIGRATED_V8_BACKUP = "db_migrated_v8_backup"
+
     /** 今日小部件「课程预告范围」：从今天起一共看几天，只允许 2 或 7（2 = 今天和明天）；未配置时默认 2（v158） */
     const val KEY_WIDGET_PREVIEW_DAYS = "widget_preview_days"
 

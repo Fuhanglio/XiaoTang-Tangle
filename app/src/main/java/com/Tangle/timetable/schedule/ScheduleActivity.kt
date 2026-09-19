@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.AppCompatImageButton
@@ -43,7 +44,11 @@ import com.Tangle.timetable.suda_life.SudaLifeActivity
 import com.Tangle.timetable.utils.*
 import es.dmoral.toasty.Toasty
 import it.sephiroth.android.library.xtooltip.Tooltip
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import splitties.activities.start
 import splitties.dimensions.dip
 import splitties.resources.styledDimenPxSize
@@ -75,6 +80,25 @@ class ScheduleActivity : BaseActivity() {
         ui = ScheduleActivityUI(this)
         setContentView(ui.root)
 
+        // B1：老库（DB 1~6）自动迁移后的一次性恢复提示（用户点「知道了」后置位，之后不再弹）
+        val prefer = getPrefer()
+        if (prefer.getBoolean(Const.KEY_DB_OLD_VERSION_DETECTED, false) &&
+                !prefer.getBoolean(Const.KEY_DB_MIGRATED_V8_BACKUP, false)) {
+            val backupPath = prefer.getString(Const.KEY_DB_BACKUP_PATH, "") ?: ""
+            MaterialAlertDialogBuilder(this)
+                    .setTitle("课表数据迁移提示")
+                    .setMessage("检测到来自旧版本的课表数据，已尝试自动迁移；" +
+                            "若课表为空，可能是旧数据格式无法兼容，" +
+                            "已为您备份到 $backupPath，可联系开发者恢复")
+                    .setCancelable(false)
+                    .setPositiveButton("知道了") { _, _ ->
+                        getPrefer().edit {
+                            putBoolean(Const.KEY_DB_MIGRATED_V8_BACKUP, true)
+                        }
+                    }
+                    .show()
+        }
+
         val json = getPrefer().getString(Const.KEY_OLD_VERSION_COURSE, "")
         if (!json.isNullOrEmpty()) {
             launch {
@@ -102,11 +126,13 @@ class ScheduleActivity : BaseActivity() {
             override fun onDrawerStateChanged(newState: Int) {}
         })
 
-        ui.content.postDelayed({
-            if (!getPrefer().getBoolean(Const.KEY_HAS_INTRO, false)) {
+        lifecycleScope.launch {
+            delay(500)
+            // Activity 已销毁时不再弹新手引导（原 postDelayed 无法取消，可能挂到已销毁窗口）
+            if (!isDestroyed && !isFinishing && !getPrefer().getBoolean(Const.KEY_HAS_INTRO, false)) {
                 initIntro()
             }
-        }, 500)
+        }
 
         initView()
         initNavView()
@@ -209,9 +235,14 @@ class ScheduleActivity : BaseActivity() {
                         initView()
                         val list = viewModel.getScheduleWidgetIds()
                         val table = viewModel.getDefaultTable() ?: return@launch
-                        list.forEach {
-                            when (it.detailType) {
-                                1 -> AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, it.id, table)
+                        withContext(Dispatchers.Default) {
+                            list.forEach {
+                                when (it.detailType) {
+                                    // 周课表部件（含绑定默认表的空 info 实例）也随切换刷新；
+                                    // refreshWidgetById 内部为同步 DAO，移到后台线程执行
+                                    0 -> AppWidgetUtils.refreshWidgetById(applicationContext, appWidgetManager, it.id, 0)
+                                    1 -> AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, it.id, table)
+                                }
                             }
                         }
                     }
@@ -525,7 +556,11 @@ class ScheduleActivity : BaseActivity() {
 
     private fun initView() {
         launch {
-            viewModel.table = viewModel.getDefaultTable() ?: return@launch
+            viewModel.table = viewModel.getDefaultTable() ?: run {
+                // 不再静默早退（原实现主界面按钮全部无响应），给出可感知提示
+                Toasty.error(this@ScheduleActivity, "未找到默认课表，请到「多课表管理」新建或导入", Toast.LENGTH_LONG).show()
+                return@launch
+            }
             // 渲染前统一应用主题颜色（主题系统为单一数据源）
             ThemeManager.applyToTable(this@ScheduleActivity, viewModel.table)
             viewModel.currentWeek = CourseUtils.countWeek(viewModel.table.startDate, viewModel.table.sundayFirst)

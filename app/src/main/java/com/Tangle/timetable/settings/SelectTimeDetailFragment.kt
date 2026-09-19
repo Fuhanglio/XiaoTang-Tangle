@@ -55,6 +55,11 @@ class SelectTimeDetailFragment : BaseDialogFragment() {
     }
 
     private fun initEvent() {
+        // 对话框重建（旋转/进程恢复）后 position 可能越界（timeList 已重新加载），守卫后直接关闭
+        if (position !in viewModel.timeList.indices) {
+            dismiss()
+            return
+        }
         var startIndex: Int
         var endIndex: Int
         startIndex = viewModel.timeSelectList.indexOf(viewModel.timeList[position].startTime)

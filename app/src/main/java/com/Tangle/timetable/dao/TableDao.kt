@@ -35,7 +35,7 @@ interface TableDao {
     fun getTableByIdSync(tableId: Int): TableBean?
 
     @Query("select id from tablebean where type = 1")
-    suspend fun getDefaultTableId(): Int
+    suspend fun getDefaultTableId(): Int?
 
     @Query("select * from tablebean where type = 1")
     suspend fun getDefaultTable(): TableBean?

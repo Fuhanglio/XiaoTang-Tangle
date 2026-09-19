@@ -62,7 +62,6 @@ class WebViewLoginFragment : BaseFragment() {
         return inflater.inflate(R.layout.fragment_web_view_login, container, false)
     }
 
-    @JavascriptInterface
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         ViewUtils.resizeStatusBar(context!!.applicationContext, view.findViewById(R.id.v_status))

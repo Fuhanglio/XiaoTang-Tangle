@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.WorkManager
 import com.Tangle.timetable.utils.Const
+import com.Tangle.timetable.utils.CrashLogger
 import com.Tangle.timetable.utils.getPrefer
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -42,15 +43,25 @@ object WidgetScheduler {
 
     private const val WORK_NAME = "widget_fallback_refresh"
 
+    /** 反射结果缓存：canScheduleExactAlarms 每次调度会被调用近百次，缓存避免重复反射与重复落盘 */
+    @Volatile
+    private var canExactCached: Boolean? = null
+
     /** Android 12+ 是否有精确闹钟权限（低版本恒为 true）。用反射兼容 compileSdk 29。 */
     fun canScheduleExact(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true   // Build.VERSION_CODES.S = 31
+        canExactCached?.let { return it }
         return try {
             val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val m = AlarmManager::class.java.getMethod("canScheduleExactAlarms")
-            m.invoke(am) as? Boolean ?: true
-        } catch (e: Exception) {
-            true   // 反射失败时不阻断，按允许处理（无权限时系统会自行降级）
+            ((m.invoke(am) as? Boolean) ?: true).also { canExactCached = it }
+        } catch (e: ReflectiveOperationException) {
+            // 反射失败按无权限降级：setExactAndAllowWhileIdle 在无权限时抛 SecurityException，
+            // 并不会"系统自行降级"；缓存降级结果，其余异常类型细分后不再统一静默吞掉
+            CrashLogger.logCaught("widget_schedule", e)
+            false.also { canExactCached = it }
+        } catch (e: SecurityException) {
+            false.also { canExactCached = it }
         }
     }
 
@@ -83,7 +94,19 @@ object WidgetScheduler {
                 Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_PREVIEW_START),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        // 20:00 放行点决定卡片何时切「明天预告」，有精确权限时用精确闹钟减少滞后
+        try {
+            if (canScheduleExact(context)) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            }
+        } catch (e: SecurityException) {
+            // 仅对无精确闹钟权限降级为可延迟闹钟
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        } catch (e: RuntimeException) {
+            CrashLogger.logCaught("widget_schedule", e)
+        }
     }
 
     /** 每天 00:05 重算（跨天后重建当天闹钟） */
@@ -100,7 +123,19 @@ object WidgetScheduler {
                 Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_RECOMPUTE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        // 跨天重算是当日所有闹钟的源头，有精确权限时用精确闹钟，避免 Doze 推迟导致跨天滞后
+        try {
+            if (canScheduleExact(context)) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            }
+        } catch (e: SecurityException) {
+            // 仅对无精确闹钟权限降级为可延迟闹钟
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        } catch (e: RuntimeException) {
+            CrashLogger.logCaught("widget_schedule", e)
+        }
     }
 
     /** 为今天所有课程注册 开始/结束/课前提醒 闹钟 */
@@ -160,11 +195,23 @@ object WidgetScheduler {
         }
         val pi = PendingIntent.getBroadcast(
                 context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        if (canScheduleExact(context)) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
-        } else {
-            // 无精确闹钟权限时降级（仍能在 Doze 下被唤醒，只是可能有几分钟延迟）
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        try {
+            if (canScheduleExact(context)) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            } else {
+                // 无精确闹钟权限时降级（仍能在 Doze 下被唤醒，只是可能有几分钟延迟）
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            }
+        } catch (e: SecurityException) {
+            // 仅对无精确闹钟权限降级为可延迟闹钟，单条失败不中断整批
+            try {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            } catch (e2: Exception) {
+                CrashLogger.logCaught("widget_schedule", e2)
+            }
+        } catch (e: RuntimeException) {
+            // 其余异常（个别 ROM 限制等）落盘记录，不再静默吞掉；不中断整批注册
+            CrashLogger.logCaught("widget_schedule", e)
         }
     }
 

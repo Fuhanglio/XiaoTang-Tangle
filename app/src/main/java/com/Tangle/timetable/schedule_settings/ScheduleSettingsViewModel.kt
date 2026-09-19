@@ -28,6 +28,10 @@ class ScheduleSettingsViewModel(application: Application) : AndroidViewModel(app
         return widgetDao.getWidgetsByBaseType(0)
     }
 
+    suspend fun getDefaultTable(): TableBean? {
+        return tableDao.getDefaultTable()
+    }
+
     fun getCurrentWeek(): Int {
         return CourseUtils.countWeek(table.startDate, table.sundayFirst)
     }

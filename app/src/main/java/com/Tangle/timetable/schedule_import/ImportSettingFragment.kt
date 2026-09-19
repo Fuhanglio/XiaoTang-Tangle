@@ -15,9 +15,19 @@ class ImportSettingFragment : BaseDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         tv_cover.setOnClickListener {
-            viewModel.importId = activity!!.intent.extras!!.getInt("tableId", -1)
-            viewModel.newFlag = false
-            dismiss()
+            // extras 缺 tableId 时不能以 -1 覆盖导入（外键违反导致导入必失败），改为新建课表
+            val tid = activity?.intent?.extras?.getInt("tableId", -1) ?: -1
+            if (tid > 0) {
+                viewModel.importId = tid
+                viewModel.newFlag = false
+                dismiss()
+            } else {
+                launch {
+                    viewModel.importId = viewModel.getNewId()
+                    viewModel.newFlag = true
+                    dismiss()
+                }
+            }
         }
 
         tv_new.setOnClickListener {

@@ -444,7 +444,11 @@ class SchoolListActivity : BaseTitleActivity(), OnQuickSideBarTouchListener {
                     getPrefer().edit {
                         putString(Const.KEY_IMPORT_SCHOOL, gson.toJson(showList[position]))
                     }
-                    val tableId = tableDao.getDefaultTableId()
+                    // 默认课表缺失（空结果集）时不再让 Room 异常杀进程，提示后中断导入
+                    val tableId = tableDao.getDefaultTableId() ?: run {
+                        Toasty.error(this@SchoolListActivity, "课表数据异常，请先在多课表管理中新建课表").show()
+                        return@launch
+                    }
                     startActivityForResult(Intent(this@SchoolListActivity, LoginWebActivity::class.java).apply {
                         putExtra("school_name", showList[position].name)
                         putExtra("import_type", showList[position].type)

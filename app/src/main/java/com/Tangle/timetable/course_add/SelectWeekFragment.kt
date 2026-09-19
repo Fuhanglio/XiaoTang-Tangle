@@ -78,17 +78,16 @@ class SelectWeekFragment : BaseDialogFragment() {
             override fun changeState(pos: Int, isDown: Boolean) {
                 if (prePos != pos || isDown) {
                     if (pos in 0 until viewModel.maxWeek) {
+                        // item 尚未挂载（快速滑动被回收）时 getViewByPosition 返回 null，统一 as? 判空
+                        val tv = adapter.getViewByPosition(pos, R.id.tv_num) as? AppCompatTextView
                         if (!result.contains(pos + 1)) {
                             result.add(pos + 1)
-                            adapter.getViewByPosition(pos, R.id.tv_num)
-                                    ?.setBackgroundResource(R.drawable.week_selected_bg)
-                            (adapter.getViewByPosition(pos, R.id.tv_num) as AppCompatTextView)
-                                    .setTextColor(Color.WHITE)
+                            tv?.setBackgroundResource(R.drawable.week_selected_bg)
+                            tv?.setTextColor(Color.WHITE)
                         } else {
                             result.remove(pos + 1)
-                            adapter.getViewByPosition(pos, R.id.tv_num)?.background = null
-                            (adapter.getViewByPosition(pos, R.id.tv_num) as AppCompatTextView)
-                                    .setTextColor(colorSurface)
+                            tv?.background = null
+                            tv?.setTextColor(colorSurface)
                         }
                         liveData.value = result
                     }

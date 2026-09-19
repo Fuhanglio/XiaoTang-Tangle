@@ -18,10 +18,29 @@ import com.Tangle.timetable.utils.getPrefer
 import com.Tangle.timetable.widget.WidgetScheduler
 import com.Tangle.timetable.widget.WidgetUpdateReceiver
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 class App : Application() {
 
     var activityCount = 0
+
+    /** D1：应用级后台协程作用域（替代裸 Thread，统一调度） */
+    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /** D1：scheduleAll 防重入（Application.onCreate 正常只调一次，防御性兜底） */
+    private val scheduleStarted = AtomicBoolean(false)
+
+    /** D2：亮屏刷新防重入（连发亮屏广播只放一个刷新任务进后台） */
+    private val screenRefreshing = AtomicBoolean(false)
+
+    /** D2：亮屏 receiver 提为成员，支持反注册/重注册，避免系统长期持有泄漏 */
+    @Volatile
+    private var screenReceiver: android.content.BroadcastReceiver? = null
+    private val screenReceiverRegistered = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -37,22 +56,20 @@ class App : Application() {
         // 初始化主题系统（同步主色调到旧配置项）
         ThemeManager.init(this)
         // 注册小部件更新调度（精确闹钟 + WorkManager 兜底）
-        try {
-            WidgetScheduler.scheduleAll(this)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        // 亮屏广播（无法在 Manifest 注册，代码动态注册以增加刷新机会）
-        try {
-            val screenReceiver = object : android.content.BroadcastReceiver() {
-                override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
-                    WidgetUpdateReceiver.refreshAllWidgets(this@App)
+        // scheduleAll 含 Room 首次建库/迁移与最多近百次 PendingIntent 注册，
+        // 移到 appScope(IO) 后台执行，并用 AtomicBoolean 防重入，避免冷启动卡顿与重复初始化
+        if (scheduleStarted.compareAndSet(false, true)) {
+            appScope.launch {
+                try {
+                    WidgetScheduler.scheduleAll(this@App)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
-            registerReceiver(screenReceiver, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_ON))
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
+        // 亮屏广播（无法在 Manifest 注册，代码动态注册以增加刷新机会）
+        // 刷新内部为同步 DB 查询：goAsync + appScope(IO)，AtomicBoolean 防连发重入
+        registerScreenReceiver()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             var channelId = "schedule_reminder"
             var channelName = "课程提醒"
@@ -85,6 +102,8 @@ class App : Application() {
             }
 
             override fun onActivityResumed(activity: Activity) {
+                // D2：回到前台恢复亮屏刷新（退后台时可能已反注册；内部有防重复注册守卫）
+                registerScreenReceiver()
             }
 
             override fun onActivityStarted(activity: Activity) {
@@ -108,6 +127,62 @@ class App : Application() {
             }
 
         })
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level == TRIM_MEMORY_UI_HIDDEN) {
+            // D2：应用退到后台，反注册亮屏广播，避免系统长期持有 receiver 造成泄漏
+            unregisterScreenReceiver()
+        }
+        // 内存吃紧时释放 OCR 引擎（约几十 MB native 内存；下次识别会自动重新初始化）
+        if (level >= TRIM_MEMORY_COMPLETE) {
+            Thread { com.Tangle.timetable.utils.TessOcrUtils.release() }.start()
+        }
+    }
+
+    /** D2：注册亮屏 receiver（幂等：已注册时直接返回） */
+    private fun registerScreenReceiver() {
+        if (screenReceiverRegistered.get()) return
+        try {
+            val receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context?, i: android.content.Intent?) {
+                    val result = goAsync()
+                    if (!screenRefreshing.compareAndSet(false, true)) {
+                        // 上一次亮屏刷新还在跑：直接收尾，避免任务堆积
+                        result.finish()
+                        return
+                    }
+                    appScope.launch {
+                        try {
+                            WidgetUpdateReceiver.refreshAllWidgets(this@App)
+                        } catch (t: Throwable) {
+                            com.Tangle.timetable.utils.CrashLogger.logCaught("screen_on", t)
+                        } finally {
+                            screenRefreshing.set(false)
+                            result.finish()
+                        }
+                    }
+                }
+            }
+            registerReceiver(receiver, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_ON))
+            screenReceiver = receiver
+            screenReceiverRegistered.set(true)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /** D2：反注册亮屏 receiver（幂等：未注册时直接返回） */
+    private fun unregisterScreenReceiver() {
+        if (!screenReceiverRegistered.getAndSet(false)) return
+        val receiver = screenReceiver ?: return
+        try {
+            unregisterReceiver(receiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        screenReceiver = null
     }
 
     @TargetApi(Build.VERSION_CODES.O)

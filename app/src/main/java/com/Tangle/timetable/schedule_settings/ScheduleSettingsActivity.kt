@@ -37,6 +37,8 @@ import com.Tangle.timetable.utils.getPrefer
 import com.Tangle.timetable.widget.ColorWheelDialogFragment
 import com.Tangle.timetable.widget.colorpicker.ColorPickerFragment
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import splitties.activities.start
 import splitties.dimensions.dip
 import splitties.snackbar.longSnack
@@ -149,9 +151,17 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
             true
         }
         viewModel.termStartList = viewModel.table.startDate.split("-")
-        viewModel.mYear = Integer.parseInt(viewModel.termStartList[0])
-        viewModel.mMonth = Integer.parseInt(viewModel.termStartList[1])
-        viewModel.mDay = Integer.parseInt(viewModel.termStartList[2])
+        // 导入数据可能带非法日期（如 "2026/9/1"），解析失败回落今天，避免设置页崩溃
+        try {
+            viewModel.mYear = Integer.parseInt(viewModel.termStartList[0])
+            viewModel.mMonth = Integer.parseInt(viewModel.termStartList[1])
+            viewModel.mDay = Integer.parseInt(viewModel.termStartList[2])
+        } catch (e: Exception) {
+            val cal = java.util.Calendar.getInstance()
+            viewModel.mYear = cal.get(java.util.Calendar.YEAR)
+            viewModel.mMonth = cal.get(java.util.Calendar.MONTH) + 1
+            viewModel.mDay = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        }
         // 「快捷入口」：从课表页的按钮进来时，自动滚到并展开对应的设置项。
         // ⚠️ 下面两个保护缺一不可（v119 修）：
         //   1) 立刻把 extra 消费掉。Activity 一旦被系统回收，重建时 intent 里原有的 extra
@@ -568,14 +578,20 @@ class ScheduleSettingsActivity : BaseListActivity(), ColorPickerFragment.ColorPi
             viewModel.saveSettings()
             val list = viewModel.getScheduleWidgetIds()
             val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
-            list.forEach {
-                when (it.detailType) {
-                    0 -> {
-                        if (it.info == viewModel.table.id.toString()) {
-                            AppWidgetUtils.refreshScheduleWidget(applicationContext, appWidgetManager, it.id, viewModel.table)
+            // 今日小部件语义上展示默认表：取默认表渲染，避免编辑非默认表时把今日卡刷成该表
+            val defaultTable = viewModel.getDefaultTable()
+            withContext(Dispatchers.Default) {
+                list.forEach {
+                    when (it.detailType) {
+                        0 -> {
+                            if (it.info == viewModel.table.id.toString()) {
+                                AppWidgetUtils.refreshScheduleWidget(applicationContext, appWidgetManager, it.id, viewModel.table)
+                            }
+                        }
+                        1 -> defaultTable?.let { t ->
+                            AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, it.id, t, false)
                         }
                     }
-                    1 -> AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, it.id, viewModel.table, false)
                 }
             }
             setResult(RESULT_OK)

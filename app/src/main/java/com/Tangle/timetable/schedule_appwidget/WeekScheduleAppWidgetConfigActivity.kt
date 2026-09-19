@@ -15,6 +15,8 @@ import com.Tangle.timetable.base_view.BaseBlurTitleActivity
 import com.Tangle.timetable.bean.AppWidgetBean
 import com.Tangle.timetable.bean.TableSelectBean
 import com.Tangle.timetable.utils.AppWidgetUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import es.dmoral.toasty.Toasty
 import splitties.snackbar.longSnack
 
@@ -71,7 +73,10 @@ class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {
                         Toasty.error(applicationContext, "该课表读取错误>_<").show()
                         finish()
                     } else {
-                        AppWidgetUtils.refreshScheduleWidget(applicationContext, appWidgetManager, mAppWidgetId, table)
+                        // E：refreshScheduleWidget 内部为同步 DAO，移到后台线程
+                        withContext(Dispatchers.Default) {
+                            AppWidgetUtils.refreshScheduleWidget(applicationContext, appWidgetManager, mAppWidgetId, table)
+                        }
                         val resultValue = Intent()
                         resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
                         setResult(Activity.RESULT_OK, resultValue)
@@ -93,8 +98,16 @@ class WeekScheduleAppWidgetConfigActivity : BaseBlurTitleActivity() {
             launch {
                 // Log.d("包名", appWidgetManager.getAppWidgetInfo(mAppWidgetId).provider.shortClassName)
                 viewModel.insertWeekAppWidgetData(AppWidgetBean(mAppWidgetId, 0, 1, ""))
-                val table = viewModel.getDefaultTable() ?: return@launch ?: return@launch
-                AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, mAppWidgetId, table)
+                // 无默认课表时按取消收尾（原双重 ?: return 是编辑残留，点击会无响应）
+                val table = viewModel.getDefaultTable() ?: run {
+                    setResult(Activity.RESULT_CANCELED)
+                    finish()
+                    return@launch
+                }
+                // E：refreshTodayWidget 内部为同步 DAO，移到后台线程
+                withContext(Dispatchers.Default) {
+                    AppWidgetUtils.refreshTodayWidget(applicationContext, appWidgetManager, mAppWidgetId, table)
+                }
                 val resultValue = Intent()
                 resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, mAppWidgetId)
                 setResult(Activity.RESULT_OK, resultValue)

@@ -19,6 +19,7 @@ import com.Tangle.timetable.schedule_import.parser.qz.QzBrParser
 import com.Tangle.timetable.schedule_import.parser.qz.QzCrazyParser
 import com.Tangle.timetable.schedule_import.parser.qz.QzParser
 import com.Tangle.timetable.schedule_import.parser.qz.QzWithNodeParser
+import com.Tangle.timetable.utils.CourseUtils
 import com.Tangle.timetable.utils.ViewUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -150,7 +151,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 for (i in 0 until courseList.length()) {
                     baseList.add(CourseBaseBean(i,
                             courseName = courseList.getJSONObject(i).getString("kcm"),
-                            color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), i % 9))}",
+                            color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), i % 9)),
                             tableId = importId
                     ))
                     for (element in courseDetailList[i]) {
@@ -272,7 +273,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             val id = baseList.size
             baseList.add(CourseBaseBean(
                     id = id, courseName = list[1],
-                    color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9))}",
+                    color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9)),
                     tableId = importId
             ))
             for (j in 4 until list.size) {
@@ -441,7 +442,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                             // 课程名可能没有「(xx班)」括号后缀，find 结果为 null 不能强解
                             id = baseList.size,
                             courseName = Regex("\\([a-zA-Z0-9.]+\\).*").find(lclass)?.value?.let { lclass.replace(it, "") } ?: lclass,
-                            color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9))}",
+                            color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9)),
                             tableId = importId
                     ))
                 } else {//课程同，但其他的出现了不同，就要写detail
@@ -536,7 +537,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             val course = CourseBaseBean(
                     id = lessonSegment.getInt("lssgId"),
                     courseName = courName,
-                    color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9))}",
+                    color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9)),
                     tableId = importId
             )
 
@@ -614,7 +615,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             val course = CourseBaseBean(
                     id = courseId,
                     courseName = courseName,
-                    color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9))}",
+                    color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), baseList.size % 9)),
                     tableId = importId
             )
 
@@ -726,6 +727,15 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         courseDetailList.forEach {
             it.tableId = tableId
         }
+        // 外部文件可能带非法 color/startDate：入库前清洗（color 脏值会导致主界面渲染崩溃）
+        courseBaseList.forEach {
+            if (!it.color.matches(Regex("^#[0-9a-fA-F]{6,8}$"))) {
+                it.color = "#007AFF"
+            }
+        }
+        if (!table.startDate.matches(Regex("^\\d{4}-\\d{1,2}-\\d{1,2}$"))) {
+            table.startDate = com.Tangle.timetable.bean.currentWeekMonday()
+        }
         timeTableDao.insertTimeTable(timeTable)
         timeDetailDao.insertTimeList(timeDetails)
         tableDao.insertTable(table)
@@ -734,13 +744,20 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
 
     suspend fun importFromExcel(uri: Uri?): Int {
         if (uri == null) throw Exception("读取文件失败")
-        if (!uri.path!!.endsWith("csv")) throw Exception("请确保选取的是 csv 文件")
+        // content:// URI 的 path 常不含扩展名（如 Download Provider 的 msf:123），
+        // 扩展名与 MIME 双重判断，避免正常 CSV 被误拒
+        val mime = try { getApplication<App>().contentResolver.getType(uri) } catch (t: Throwable) { null }
+        val looksLikeCsv = uri.path?.endsWith("csv", ignoreCase = true) == true ||
+                mime?.contains("csv", ignoreCase = true) == true
+        if (!looksLikeCsv) throw Exception("请确保选取的是 csv 文件")
         val source = withContext(Dispatchers.IO) {
-            val text = getApplication<App>().contentResolver.openInputStream(uri)!!.bufferedReader(Charset.forName("gbk")).readText()
+            val text = getApplication<App>().contentResolver.openInputStream(uri)
+                    ?.bufferedReader(Charset.forName("gbk"))?.readText() ?: throw Exception("读取文件失败")
             if (text.startsWith("课程名称")) {
                 text
             } else {
-                getApplication<App>().contentResolver.openInputStream(uri)!!.bufferedReader().readText()
+                getApplication<App>().contentResolver.openInputStream(uri)
+                        ?.bufferedReader()?.readText() ?: throw Exception("读取文件失败")
             }
         }
         val parser = CSVParser(source)
@@ -780,6 +797,12 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun write2DB(): Int {        if (baseList.isEmpty()) {
             throw Exception("解析错误>_<请确保选择了正确的教务类型，并在显示了课程的页面")
+        }
+        // 写库前统一清洗 color：非法色值回落 iOS 蓝，避免渲染层 Color.parseColor 崩溃
+        baseList.forEach {
+            if (!it.color.matches(Regex("^#[0-9a-fA-F]{6,8}$"))) {
+                it.color = "#007AFF"
+            }
         }
         if (!newFlag) {
             courseDao.coverImport(baseList, detailList)

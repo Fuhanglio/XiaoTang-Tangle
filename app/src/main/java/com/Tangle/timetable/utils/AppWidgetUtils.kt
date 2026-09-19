@@ -278,8 +278,10 @@ object AppWidgetUtils {
         // 智能模式下「今天课全上完」会自动跳到明天，所以这里单独拿今天的课判断，不能只看 offset。
         // 连间距约要 103dp，空间不够就让课程行逐行让位，连一行课程都保不住时干脆不显示板块。
         val birthdayDays = if (!manual && BirthdayUtils.isSet(context)) BirthdayUtils.daysUntil(context) else -1
-        val todayPending = WidgetData.getCoursesForOffset(context, 0, tableBean)
-                .any { it.status != WidgetData.STATUS_FINISHED }
+        // offset==0 时 all 就是今天的课，复用省一次同表同日查询
+        val todayPending = if (offset == 0) all.any { it.status != WidgetData.STATUS_FINISHED }
+                else WidgetData.getCoursesForOffset(context, 0, tableBean)
+                        .any { it.status != WidgetData.STATUS_FINISHED }
         var showBirthday = birthdayDays in 0..30 && !todayPending
         var itemLimit = maxItems
         if (showBirthday) {

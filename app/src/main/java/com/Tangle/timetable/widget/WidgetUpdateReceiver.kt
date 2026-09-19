@@ -16,6 +16,7 @@ import com.Tangle.timetable.SplashActivity
 import com.Tangle.timetable.today_appwidget.TodayCourseAppWidget
 import com.Tangle.timetable.utils.AppWidgetUtils
 import com.Tangle.timetable.utils.Const
+import com.Tangle.timetable.utils.CrashLogger
 import com.Tangle.timetable.utils.getPrefer
 import com.Tangle.timetable.utils.goAsync
 import com.Tangle.timetable.next_appwidget.NextCourseAppWidget
@@ -121,18 +122,36 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
                 // 今日课程：按组件名找全部实例，不依赖数据库登记
                 defaultTable?.let { table ->
                     awm.getAppWidgetIds(ComponentName(context, TodayCourseAppWidget::class.java))
-                            .forEach { id -> AppWidgetUtils.refreshTodayWidget(context, awm, id, table) }
+                            .forEach { id ->
+                                // 单个实例刷新失败只记日志，不阻断其余部件（v133 残留缺口收尾）
+                                try {
+                                    AppWidgetUtils.refreshTodayWidget(context, awm, id, table)
+                                } catch (t: Throwable) {
+                                    Log.e(TAG, "refresh today widget failed", t)
+                                    CrashLogger.logCaught("widget", t)
+                                }
+                            }
                 }
                 // 周课表：DB 里登记的实例各自可能绑定不同课表，按登记信息取表
                 for (w in widgetDao.getWidgetsByTypesSync(0, 0)) {
-                    val t = if (w.info.isEmpty()) defaultTable
-                            else tableDao.getTableByIdSync(w.info.toIntOrNull() ?: -1)
-                    if (t != null) AppWidgetUtils.refreshScheduleWidget(context, awm, w.id, t)
+                    try {
+                        val t = if (w.info.isEmpty()) defaultTable
+                                else tableDao.getTableByIdSync(w.info.toIntOrNull() ?: -1)
+                        if (t != null) AppWidgetUtils.refreshScheduleWidget(context, awm, w.id, t)
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "refresh schedule widget failed", t)
+                        CrashLogger.logCaught("widget", t)
+                    }
                 }
                 // 下一节课（按组件名找全部实例，无需登记 DB）
                 val nextIds = awm.getAppWidgetIds(ComponentName(context, NextCourseAppWidget::class.java))
                 nextIds.forEach { id ->
-                    AppWidgetUtils.refreshNextWidget(context, awm, id)
+                    try {
+                        AppWidgetUtils.refreshNextWidget(context, awm, id)
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "refresh next widget failed", t)
+                        CrashLogger.logCaught("widget", t)
+                    }
                 }
                 // 说明：今日课程与周课表小部件都已改成静态行布局，没有 AdapterView，
                 // 因此这里不再需要 notifyAppWidgetViewDataChanged。

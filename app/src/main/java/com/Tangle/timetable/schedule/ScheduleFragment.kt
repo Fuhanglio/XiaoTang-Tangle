@@ -246,7 +246,7 @@ class ScheduleFragment : BaseFragment() {
             textView.setPadding(context!!.dip(6))
 
             if (c.color.isEmpty()) {
-                c.color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(activity!!, c.id % 9))}"
+                c.color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(activity!!, c.id % 9))
             }
 
             if (isOtherWeek) {
@@ -300,6 +300,12 @@ class ScheduleFragment : BaseFragment() {
             } else {
                 ""
             }
+            // 脏数据兜底：color 非法（导入文件被手改等）时回落 iOS 蓝，不再抛异常崩主界面
+            val bgColor = try {
+                Color.parseColor(c.color)
+            } catch (e: Exception) {
+                0xFF007AFF.toInt()
+            }
             textView.init(
                     courseName = c.courseName,
                     room = c.room ?: "",
@@ -307,7 +313,7 @@ class ScheduleFragment : BaseFragment() {
                     timeText = startTime,
                     txtSize = table.itemTextSize,
                     txtColor = table.courseTextColor,
-                    bgColor = Color.parseColor(c.color),
+                    bgColor = bgColor,
                     bgAlpha = viewModel.alphaInt,
                     stroke = table.strokeColor
             )

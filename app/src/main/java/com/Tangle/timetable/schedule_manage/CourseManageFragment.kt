@@ -24,6 +24,8 @@ import com.Tangle.timetable.course_add.AddCourseActivity
 import com.Tangle.timetable.utils.AppWidgetUtils
 import com.Tangle.timetable.utils.Const
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import splitties.activities.start
 import splitties.dimensions.dip
 
@@ -115,8 +117,11 @@ class CourseManageFragment : BaseFragment() {
                             Toasty.success(context!!, "删除成功~").show()
                             val list = viewModel.getScheduleWidgetIds()
                             val appWidgetManager = AppWidgetManager.getInstance(activity!!.applicationContext)
-                            list.forEach {
-                                AppWidgetUtils.refreshWidgetById(activity!!.applicationContext, appWidgetManager, it.id, it.detailType)
+                            withContext(Dispatchers.Default) {
+                                // refreshWidgetById 内部为同步 DAO，移到后台线程执行
+                                list.forEach {
+                                    AppWidgetUtils.refreshWidgetById(activity!!.applicationContext, appWidgetManager, it.id, it.detailType)
+                                }
                             }
                         }
                     }

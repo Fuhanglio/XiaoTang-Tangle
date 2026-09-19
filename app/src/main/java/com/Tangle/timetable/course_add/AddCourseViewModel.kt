@@ -62,7 +62,7 @@ class AddCourseViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         if (baseBean.color == "") {
-            baseBean.color = "#${Integer.toHexString(ViewUtils.getCustomizedColor(getApplication(), baseBean.id % 9))}"
+            baseBean.color = CourseUtils.formatColor(ViewUtils.getCustomizedColor(getApplication(), baseBean.id % 9))
         }
         for (i in editList.indices) {
             saveList.addAll(CourseUtils.editBean2DetailBeanList(editList[i]))

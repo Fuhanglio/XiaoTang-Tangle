@@ -37,7 +37,9 @@ import com.Tangle.timetable.utils.CourseUtils
 import com.Tangle.timetable.widget.EditDetailFragment
 import com.Tangle.timetable.widget.colorpicker.ColorPickerFragment
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import splitties.dimensions.dip
 import splitties.resources.color
 import splitties.snackbar.action
@@ -171,8 +173,11 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
         adapter.setOnItemChildClickListener { _, view, position ->
             when (view.id) {
                 R.id.ll_time -> {
+                    // 每次点击都会注册新 observer：先解绑旧的，避免累积泄漏与重复回调
+                    viewModel.editList[position].time.removeObservers(this)
                     viewModel.editList[position].time.observe(this, Observer {
-                        val textView = adapter.getViewByPosition(position + 1, R.id.et_time) as AppCompatTextView
+                        val textView = adapter.getViewByPosition(position + 1, R.id.et_time) as? AppCompatTextView
+                                ?: return@Observer
                         textView.text = "${CourseUtils.getDayStr(it!!.day)}    第${it.startNode} - ${it.endNode}节"
                     })
                     val selectTimeDialog = SelectTimeFragment.newInstance(position)
@@ -187,9 +192,11 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
                     }
                 }
                 R.id.ll_weeks -> {
+                    viewModel.editList[position].weekList.removeObservers(this)
                     viewModel.editList[position].weekList.observe(this, Observer {
                         it!!.sort()
-                        val textView = adapter.getViewByPosition(position + 1, R.id.et_weeks) as AppCompatTextView
+                        val textView = adapter.getViewByPosition(position + 1, R.id.et_weeks) as? AppCompatTextView
+                                ?: return@Observer
                         val text = Common.weekIntList2WeekBeanList(it).toString()
                         textView.text = text.substring(1, text.length - 1)
                     })
@@ -277,7 +284,12 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
         })
         tvColor.text = baseBean.color
         if (baseBean.color != "") {
-            val colorInt = Color.parseColor(baseBean.color)
+            // 脏数据兜底：非法色值回落 iOS 蓝，避免编辑页打开即崩
+            val colorInt = try {
+                Color.parseColor(baseBean.color)
+            } catch (e: Exception) {
+                0xFF007AFF.toInt()
+            }
             ivColor.setColorFilter(colorInt)
             tvColor.setTextColor(colorInt)
             tvColor.text = "点此更改颜色"
@@ -296,7 +308,7 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
         tvColor.setTextColor(color)
         tvColor.text = "点此更改颜色"
         ivColor.setColorFilter(color)
-        viewModel.baseBean.color = "#${Integer.toHexString(color)}"
+        viewModel.baseBean.color = CourseUtils.formatColor(color)
     }
 
     /**
@@ -350,9 +362,12 @@ class AddCourseActivity : BaseListActivity(), ColorPickerFragment.ColorPickerDia
                 viewModel.preSaveData(isSame)
                 val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
                 val list = viewModel.getScheduleWidgetIds()
-                list.forEach {
-                    // 今日课程小部件已改为静态行布局，不再走适配器通知，改为直接按实例刷新
-                    AppWidgetUtils.refreshWidgetById(applicationContext, appWidgetManager, it.id, it.detailType)
+                withContext(Dispatchers.Default) {
+                    // refreshWidgetById 内部为同步 DAO，移到后台线程执行
+                    list.forEach {
+                        // 今日课程小部件已改为静态行布局，不再走适配器通知，改为直接按实例刷新
+                        AppWidgetUtils.refreshWidgetById(applicationContext, appWidgetManager, it.id, it.detailType)
+                    }
                 }
                 Toasty.success(applicationContext, "保存成功").show()
                 // 编辑保存也回传结果，管理页列表才会刷新（原来只有新增回传）
