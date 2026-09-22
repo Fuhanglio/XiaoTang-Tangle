@@ -249,14 +249,25 @@ object AppWidgetUtils {
         val subColor = 0xFF8E8E93.toInt()
 
         // 本次显示几门课：按卡片实际高度算。
-        // 竖屏下 OPTION_APPWIDGET_MIN_HEIGHT 就是卡片当前高度（官方语义），MAX_HEIGHT 是横屏时的值，
-        // 所以优先用 MIN_HEIGHT；有的桌面 resize 后不回传，才退回 MAX_HEIGHT，都没有就按三格估。
+        // 官方语义：OPTION_APPWIDGET_MAX_HEIGHT 是竖屏当前高度，OPTION_APPWIDGET_MIN_HEIGHT 是横屏高度。
+        // 旧实现优先取 MIN_HEIGHT，竖屏下拿到的是横屏的较小值 → 行数被低估，
+        // 实测症状：标题写「共2门课」却只渲染 1 门（v162 修；周部件 refreshScheduleWidget 一直就是 MAX 优先，
+        // 今日部件此处方向写反了）。现按当前屏幕方向取对应值，另一侧作回退（兼容 resize 后不回传的桌面），
+        // 都没有就按三格估。
         // 一行课程的实际消耗：上下内边距 20 + 标题区 36 + 列表上间距 4 + 行高 44 = 104，
         // 之后每多一行加 48（行高 44 + 行距 4）；两种排列的行高与间距一致，共用同一个公式。
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
         val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-        val reportedHeight = if (minHeight > 0) minHeight else maxHeight
+        val isPortrait = context.resources.configuration.orientation !=
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val reportedHeight = when {
+            isPortrait && maxHeight > 0 -> maxHeight
+            !isPortrait && minHeight > 0 -> minHeight
+            minHeight > 0 -> minHeight
+            maxHeight > 0 -> maxHeight
+            else -> 0
+        }
         val cardHeightDp = if (reportedHeight in 1..2000) reportedHeight else 240
         val compact = context.getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1
         val maxRows = ((cardHeightDp - 56) / 48).coerceIn(1, 4)
@@ -288,7 +299,12 @@ object AppWidgetUtils {
             while (itemLimit > 1 && 104 + 48 * (itemLimit - 1) + 103 > cardHeightDp) {
                 itemLimit--
             }
-            if (104 + 103 > cardHeightDp) showBirthday = false
+            if (104 + 103 > cardHeightDp) {
+                showBirthday = false
+                // 生日板块最终放不下被隐藏：此前为它让位而压缩掉的课程行必须全部恢复，
+                // 否则出现「生日没显示、课也少了一门」的双重丢行（v162 修：预告 2 门只显示 1 门的另一条根因）
+                itemLimit = maxItems
+            }
         }
 
         // 递补：showList 已经滤掉上完的课（除非当天全上完、且没开「隐藏已结束课程」），
