@@ -15,6 +15,7 @@ import com.Tangle.timetable.schedule_settings.ScheduleSettingsActivity
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.ThemeManager
 import com.Tangle.timetable.utils.getPrefer
+import com.Tangle.timetable.update.UpdateManager
 import com.Tangle.timetable.widget.WidgetScheduler
 import com.Tangle.timetable.widget.WidgetUpdateReceiver
 import es.dmoral.toasty.Toasty
@@ -127,6 +128,8 @@ class App : Application() {
             }
 
         })
+        // 内置自动更新：启动后后台静默检查，首个前台 Activity 弹窗（不拖慢启动）
+        UpdateManager.onAppCreate(this)
     }
 
     override fun onTrimMemory(level: Int) {

@@ -5,6 +5,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import com.Tangle.timetable.R
 import com.Tangle.timetable.base_view.BaseBlurTitleActivity
 import com.Tangle.timetable.utils.UpdateUtils
+import com.Tangle.timetable.update.UpdateManager
 
 class AboutActivity : BaseBlurTitleActivity() {
     override val layoutId: Int
@@ -22,6 +23,9 @@ class AboutActivity : BaseBlurTitleActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        findViewById<androidx.appcompat.widget.AppCompatTextView>(R.id.tv_check_update)
+            ?.setOnClickListener { UpdateManager.checkManual(this) }
 
     }
 }

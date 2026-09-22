@@ -74,4 +74,10 @@ object Const {
     /** 上一次「同步到系统日历」选中的日历 id，-1 表示还没选过 */
     /** v132 起记忆「authority|id」组合键，避免不同日历库同 id 撞号写错日历 */
 
+    /** 自动检查更新：上次自动检查的时间戳（6 小时内不重复查，省流量/避限流） */
+    const val KEY_UPDATE_LAST_AUTO_CHECK = "update_last_auto_check"
+
+    /** 自动检查更新：用户选择「跳过此版本」的 versionCode，该版本不再自动提示 */
+    const val KEY_UPDATE_SKIP_VERSION = "update_skip_version"
+
 }
