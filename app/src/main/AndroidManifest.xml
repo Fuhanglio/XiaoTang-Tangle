@@ -5,13 +5,32 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- W8-15：原此处还声明了 `USE_EXACT_ALARM`（带 tools:ignore="ProtectedPermissions"）。
+         已删除，只保留 `SCHEDULE_EXACT_ALARM`。理由：
+           ① 两者语义不同：SCHEDULE_EXACT_ALARM 是**用户可在系统设置里授予/撤销**的（Android 12+），
+              USE_EXACT_ALARM 是**安装即得、用户不可撤销**的（Android 13+，且 Google Play 只允许
+              闹钟/日历类应用申请，上架时要额外说明用途）；
+           ② 本工程的降级链路早就完整：`WidgetScheduler.canScheduleExact()` 无权限时自动退回
+              `setAndAllowWhileIdle`，并且引导页会带用户去开 SCHEDULE_EXACT_ALARM
+              —— 也就是说 USE_EXACT_ALARM 提供的"无需用户操作即精确"这个便利，
+              是以**上架风险 + 用户不可控**为代价换来的，不划算；
+           ③ 保留两者还会造成引导页状态与系统实际授权口径不一致的观感问题。 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission
-        android:name="android.permission.USE_EXACT_ALARM"
-        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 日历权限：保留，不要删。2026-09-27 复核结论 + 重启清单：
+         ① 现状：「同步到系统日历」的 UI 入口已在 v143 移除，整套同步实现
+            （`CalendarSyncUtils.syncTable` / `queryWritableCalendars` / `ensureLocalCalendar`）
+            目前**零调用点**，处于休眠状态。保留它是为了后续上架 OPPO 后接负一屏日历卡能直接复用；
+            重写成本远高于让它闲置在这里的成本。
+         ② 唯一还活着的是清理路径 `deleteSyncedEventsAllProviders`（把老版本写进用户系统日历的事件删掉），
+            调用点被 `hasPermission()` 挡着。本工程当前**没有任何日历权限申请**，所以新装机器上它是 false、不会执行；
+            但**权限一旦授予会持久保留**，v143 之前授权过的老设备上它仍然是 true，
+            那条清理路径在那批设备上是**真活的**。
+         ③ 因此：权限声明保留 + 清理路径保留 + 休眠的同步实现保留。删除是不可逆的
+            （删了之后那批老设备的系统日历里，旧事件就再也没人能清）。
+         ④ 要重启这套同步，先读 `CalendarSyncUtils.kt` 文件头的那份重启清单。 -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -27,9 +46,16 @@
         <package android:name="com.tencent.tim" />
     </queries>
 
+    <!-- W8-16：下面显式声明「不启用预测性返回」= 把当前行为写成约定。
+         targetSdk 34 下该属性默认就是 false，所以现状无 bug；但一旦系统未来默认开启预测性返回，
+         未迁移到 OnBackPressedDispatcher 的两处关键行为会静默失效：
+           ScheduleActivity.onBackPressed（承担"先收抽屉 / 先收底部弹层"的优先级）
+           SplashActivity.onBackPressed（空实现，用于屏蔽返回）
+         显式写死可避免这种"隐式默认值漂移"带来的静默回归；正式迁移另行安排。 -->
     <application
         android:name=".App"
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
@@ -85,10 +111,27 @@
                     android:pathPattern=".*\\.csv" />
             </intent-filter>
         </activity>
+        <!-- W8-14：以下 4 个 Activity（ScheduleActivity / SettingsActivity / ScheduleSettingsActivity /
+             BirthdayReminderActivity）原先的 configChanges 里带 uiMode，而全工程**没有一处**重写
+             onConfigurationChanged → 深色切换时它们不重建，onCreate 里设置的状态栏图标色不会重算，
+             结果"深色下仍是浅色状态栏图标"；而其余 12 个无 uiMode 的 Activity 会被系统重建、状态栏正确。
+             两组行为不一致。现按台账方案 A 统一：从这 4 条里删掉 uiMode，交给系统重建。
+             （页面状态本身在 ViewModel 里，重建不会丢） -->
+        <!-- W8-13：ScheduleActivity 的 configChanges 从「orientation|screenSize|keyboardHidden|screenLayout」
+             收窄成只剩 keyboardHidden —— 也就是**让旋转/尺寸变化走系统重建**。
+             原因：`ScheduleActivityUI` 里有一批**一次性计算**的量，最典型的是
+               `statusBarMargin = getStatusBarHeight(ctx) + ctx.dip(8)`（第 43 行，被 6 处 topMargin 使用），
+             而横屏下 status_bar_height 通常为 0 —— 用 configChanges 吞掉重建后，这个值永远停在竖屏的值，
+             界面顶部会多出一块空白（这就是台账 W8-13 说的"用 configChanges 保住状态、却漏了重算"）。
+             这里的取舍：**不去手写 onConfigurationChanged 里的整屏重建**（`ui = ScheduleActivityUI(this)`
+             是一次性构建整棵视图树，在回调里复刻它等于把 onCreate 抄一遍，出错面大），
+             而是走系统那条**已被验证正确**的重建路径。
+             页面状态不丢：`ScheduleActivity` 的数据都在 activity 级 ViewModel 里，重建后自动还原。
+             副作用：底部弹层/抽屉的展开态会回到初始态（属标准 Android 行为，另外 12 个页面本来就这样）。 -->
         <activity
             android:name=".schedule.ScheduleActivity"
             android:exported="false"
-            android:configChanges="uiMode|orientation|screenSize|keyboardHidden|screenLayout" />
+            android:configChanges="keyboardHidden" />
         <activity
             android:name=".course_add.AddCourseActivity"
             android:exported="false"
@@ -98,16 +141,27 @@
         <activity
             android:name=".settings.SettingsActivity"
             android:exported="false"
-            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="设置" />
         <activity
             android:name=".settings.TimeSettingsActivity"
             android:exported="false"
             android:label="选择时间表" />
 
+        <!-- W3-10 / W5-05：三个 appwidget provider **一律不导出**。
+             官方 App Widgets 指南原文：「Do not export the component unless you need a separate
+             process to broadcast to your AppWidgetProvider (which is usually not the case).」
+             即：系统投递 APPWIDGET_UPDATE 走的是**显式指向本组件**的内部通道，与 exported 无关；
+             而 exported=true 会让任意第三方应用：
+               ① 直接给本组件发 APPWIDGET_UPDATE（可带伪造 appWidgetIds → 写脏数据库，W5-04）；
+               ② 直接发伪造的私有 action（WAKEUP_NEXT_WEEK / WAKEUP_BACK_WEEK /
+                  WAKEUP_NEXT_DAY / WAKEUP_BACK_TIME）→ 远程翻动别人桌面的周次/日期（W5-05）。
+             改成 false 后这两条路一起关闭，而应用内 PendingIntent（同 UID）与系统投递都不受影响。
+             ⚠ 后续若要新增"跨进程广播给 provider"的需求，请**另开一个 receiver** 并显式声明
+             exported 与自定义 permission，不要把这三个改回 true。 -->
         <receiver
             android:name=".schedule_appwidget.ScheduleAppWidget"
-            android:exported="true"
+            android:exported="false"
             android:label="一周课程">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -139,12 +193,12 @@
         <activity
             android:name=".schedule_settings.ScheduleSettingsActivity"
             android:exported="false"
-            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="课表设置" />
         <activity
             android:name=".schedule_settings.BirthdayReminderActivity"
             android:exported="false"
-            android:configChanges="uiMode|orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="生日提醒" />
         <activity
             android:name=".schedule_appwidget.WeekScheduleAppWidgetConfigActivity"
@@ -157,7 +211,7 @@
 
         <receiver
             android:name=".today_appwidget.TodayCourseAppWidget"
-            android:exported="true"
+            android:exported="false"
             android:label="当天课程">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -170,7 +224,7 @@
 
         <receiver
             android:name=".next_appwidget.NextCourseAppWidget"
-            android:exported="true"
+            android:exported="false"
             android:label="下一节课">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -185,8 +239,12 @@
             android:name=".widget.WidgetUpdateReceiver"
             android:exported="false">
             <intent-filter>
+                <!-- W3-8：原先这里还声明了 android.intent.action.LOCKED_BOOT_COMPLETED，属纯死配置，已移除。
+                     两个理由：① 本 receiver 与 application 都没有 android:directBootAware="true"，
+                     系统不会在直启阶段把该广播投递给它；② WidgetUpdateReceiver.onReceive 的 when 里
+                     本来就没有该 action 的分支，即使投递到也什么都不做。全工程 grep 该 action 仅此一处。
+                     注意：ACTION_BOOT_COMPLETED 仍在，解锁后的开机重排链路不受影响。 -->
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.DATE_CHANGED" />

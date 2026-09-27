@@ -29,12 +29,46 @@ def fixedDebugKeyStore = rootProject.file('keystore/xiaotang.jks')
 android {
     // AGP 8 起，AndroidManifest 的 package 属性不再支持，改由 namespace 指定（R 类包名）。
     namespace 'com.Tangle.timetable'
+    // W4-01 / W4-02：release 签名配置改为**从 keystore.properties 读取**（该文件已在 .gitignore）。
+    //
+    // 改之前的问题（两处，都是"配置本身是坏的"而不只是"没授权"）：
+    //   ① 口令明文写在**被 git 跟踪的** build.gradle 里 —— 该值已随仓库公开（等于已泄露）；
+    //   ② storeFile 用的是原作者 macOS 上的绝对路径 `/Volumes/Document/yzune.jks`，
+    //      Groovy 的 file() 在模块目录下解析它 → 变成 `app/Volumes/Document/yzune.jks`
+    //      → `validateSigningNormalRelease` **必然失败**，release 构建 100% 编不出来。
+    //
+    // 现在：
+    //   · 口令/别名/路径全部读本地 `keystore.properties`（不进仓库），换口令只需改一个文件；
+    //   · 文件缺失或未填口令时**不注册 release 签名配置**，release 会产出**未签名** APK
+    //     —— R8、资源收缩、打包全部照常跑通，只是还不能直接装。
+    //   · 也**不再沿用那个已泄露的旧口令**：请填你自己的新口令，并给 keystore 换口令。
+    //
+    // keystore.properties 的格式（键名固定，缺失即视为未配置）：
+    //   release.storeFile=keystore/yzune.jks        # 相对**项目根目录**
+    //   release.storePassword=你的store口令
+    //   release.keyAlias=yzune
+    //   release.keyPassword=你的key口令
+    def keystoreProps = new Properties()
+    def keystorePropsFile = rootProject.file('keystore.properties')
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.withInputStream { keystoreProps.load(it) }
+    }
+    def releaseStorePath = keystoreProps.getProperty('release.storeFile', '')
+    def releaseStorePassword = keystoreProps.getProperty('release.storePassword', '')
+    def releaseKeyPassword = keystoreProps.getProperty('release.keyPassword', '')
+    def releaseKeyAlias = keystoreProps.getProperty('release.keyAlias', '')
+    def releaseSigningReady = releaseStorePath &&
+            releaseStorePassword && releaseKeyPassword && releaseKeyAlias &&
+            rootProject.file(releaseStorePath).exists()
+
     signingConfigs {
-        config {
-            keyAlias 'yzune'
-            keyPassword '11166511'
-            storeFile file('/Volumes/Document/yzune.jks')
-            storePassword '11166511'
+        if (releaseSigningReady) {
+            release {
+                storeFile rootProject.file(releaseStorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
         }
         if (fixedDebugKeyStore.exists()) {
             xiaotang {
@@ -55,13 +89,19 @@ android {
         minSdkVersion 21
         targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 164
-        versionName "3.695"
+        versionCode 166
+        versionName "3.697"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         ndk {
             // 选择要添加的对应cpu类型的.so库。
-            abiFilters 'armeabi-v7a', "arm64-v8a", "x86"
+            // W4-05：原为 'armeabi-v7a', "arm64-v8a", "x86" —— 但 jniLibs/ 下只有
+            // armeabi-v7a 与 arm64-v8a 两个目录（v122 引入 OCR 时只搬了上游 AAR 的这两个 ABI），
+            // 已产出的 APK 里也只有这两个 ABI → 声明与实际交付脱节。
+            // 台账给了两条路：(a) 从官方 AAR 补齐 x86/x86_64 各 4 个 .so（体积 +≈15MB）；
+            // (b) 让声明与交付一致。本批选 (b)：不虚增 15MB 包体，x86/x86_64 设备上的
+            // 「图片导入课表」（Tesseract OCR）本来就没有原生库可用，与改前行为一致。
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
         }
     }
     buildTypes {
@@ -74,10 +114,16 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
-            zipAlignEnabled true
+            // W4-14：原来这里写着 `zipAlignEnabled true` —— 该选项从 AGP 3.x 起就已被
+            // **无条件启用**（zipalign 是打包必经步骤），显式写成一行不仅无效，
+            // 还会让人误以为"关掉它就能不 zipalign"。已删。
             proguardFile 'proguard-android.txt'
             proguardFile 'proguard-rules.pro'
-            signingConfig signingConfigs.config
+            // W4-01：只有 keystore.properties 里四项齐备且密钥文件真实存在时才挂签名配置；
+            // 否则产出**未签名** APK（R8 / 资源收缩 / 打包照常，release 链路因此可被验证）
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
         }
     }
     buildToolsVersion '34.0.0'
@@ -100,7 +146,9 @@ android {
                          'META-INF/dependencies.txt',
                          'META-INF/LGPL2.1',
                          'META-INF/ASL2.0',
-                         'org/apache/commons/codec/language/bm/*.txt',
+                         // W4-08：原此处排除 'org/apache/commons/codec/language/bm/*.txt'，
+                         // 但本工程从未依赖 commons-codec（build.gradle 里无命中）→ 该排除项无对应物，
+                         // 属从旧模板沿用的漂移配置，已删。
                          'lib/*/libRSSupport.so',
                          'lib/*/librsjni.so',
                          'lib/*/librsjni_androidx.so']
@@ -135,17 +183,30 @@ android {
 }
 
 dependencies {
-    def lifecycle_version = "2.2.0"
+    // W4-11：原为 "2.2.0"（2020 年）。工程实际早已在用 2.4+ 才有的
+    // `lifecycleScope` / `viewLifecycleOwner.lifecycleScope`，真实生效版本是传递依赖顶上来的。
+    // 显式对齐到 2.6.2：与缓存中实际存在的构件版本一致，不再依赖"恰好被谁带上来"。
+    def lifecycle_version = "2.6.2"
     def room_version = "2.6.1"
 
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.core:core-ktx:1.9.0'
     implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.3"
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.3'
+    // W4-11：这里原本写 1.3.3，但工程实际一直在用 1.7.1 的 API（`awaitAll` / `CoroutineScope`
+    // 扩展等），真正生效的版本由其它依赖传递上来 —— 声明与实际**长期不一致**。
+    // 现在显式对齐到实际使用的 1.7.1（行为不变，只是把"暗箱"写明白）。
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     implementation 'com.google.android.material:material:1.9.0'
-    implementation "androidx.lifecycle:lifecycle-extensions:$lifecycle_version"
+    // W4-12：`lifecycle-extensions` 自 **2.2.0 起已停止发布**（整体被拆成各子构件），
+    // 且它的所有能力都已由下面的显式构件覆盖（工程里未使用 `ProcessLifecycleOwner`）。
+    // 拆开声明后：① 版本可独立演进；② 不会再把整套 livedata/viewmodel 隐式拖进来；
+    // ③ `lifecycle-runtime-ktx` 正是 `lifecycleScope` / `viewLifecycleOwner.lifecycleScope`
+    //    的来源 —— 以前是靠传递依赖"恰好"拿到的，现在写明。
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
+    implementation "androidx.lifecycle:lifecycle-livedata:$lifecycle_version"
     // WorkManager 2.3.4（2020）内部用 PendingIntent 时无可变性标志，targetSdk31+ 会崩，升到 2.9.0
     implementation "androidx.work:work-runtime:2.9.0"
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
@@ -155,16 +216,34 @@ dependencies {
     implementation "androidx.room:room-ktx:$room_version"
     kapt "androidx.room:room-compiler:$room_version"
     implementation 'com.squareup.retrofit2:retrofit:2.7.1'
+    // R2-01：okhttp 3.14.4（2020）的 Android 平台探测在 SDK 36 上会落到异常分支，
+    // 而 OkHttpClient 在 UpdateClient.<clinit> 里创建 → ExceptionInInitializerError(Error)
+    // → catch (Exception) 接不住 → 每次进程启动（含小部件广播拉起）必崩。
+    // 本工程此前**没有声明 okhttp**，用的是 retrofit:2.7.1 传递带进来的 3.14.4，故显式声明覆盖之。
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.github.GrenderG:Toasty:1.4.2'
-    implementation 'org.jsoup:jsoup:1.12.2'
+    // W4-03：1.12.2 存在 CVE-2021-37714（解析恶意 HTML 可致无限循环/异常 → DoS，CVSS 7.5，
+    // 1.14.2 修复）。触发面很实在：HTML 导入直接解析教务系统网页，而 .html 是 exported 入口，
+    // 任意应用都能把构造的 HTML 交给本应用。升到 1.17.2（>1.14.2，同时覆盖 1.15.3 修复的 XXE 类问题）。
+    // 代码侧只用了 Jsoup.connect / Jsoup.parse / getElementById / getElementsByTag /
+    // getElementsByAttributeValue / select，这些在 1.12→1.17 之间 API 稳定。
+    implementation 'org.jsoup:jsoup:1.17.2'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'cn.carbswang.android:NumberPickerView:1.2.0'
     implementation('com.github.CymChad:BaseRecyclerViewAdapterHelper:3.0.0-beta11') {
         exclude group: 'androidx'
     }
     implementation 'com.github.bumptech.glide:glide:4.11.0'
-    implementation 'com.google.code.gson:gson:2.8.6'
-    kapt 'com.github.bumptech.glide:compiler:4.11.0'
+    // W4-04：2.8.6 存在 CVE-2022-25647（writeReplace() 反序列化不可信数据 → DoS，7.5/7.7，
+    // 2.8.9 修复）。触发面同样实在：.wakeup_schedule / CSV / JSON 导入文件都来自 exported VIEW 入口，
+    // 以及学校教务服务器返回的 JSON。升到 2.9.0（≥2.8.9）。-keepattributes Signature 与 bean keep 规则不受影响。
+    implementation 'com.google.code.gson:gson:2.9.0'
+    // W4-14：原来的 `kapt 'com.github.bumptech.glide:compiler:4.11.0'` 已删。
+    // 它的作用只有一个：注解处理生成 `GlideApp` / `GeneratedAppGlideModuleImpl`。
+    // 已全工程 grep 确认：`GlideApp`、`GeneratedAppGlideModule`、`@GlideModule`、
+    // `AppGlideModule` **一个引用点都没有** —— 全部走的是普通 `Glide.with(...)`，
+    // 所以这段注解处理纯属空跑（拖慢构建、还多一份生成物）。
+    // ⚠ 若将来要自定义 Glide 配置（如全局缓存策略），再把它加回来并改用 `GlideApp.with(...)`。
     implementation "androidx.navigation:navigation-fragment-ktx:$nav_version"
     implementation "androidx.navigation:navigation-ui-ktx:$nav_version"
     implementation 'com.github.doyaaaaaken:kotlin-csv-jvm:0.7.3'

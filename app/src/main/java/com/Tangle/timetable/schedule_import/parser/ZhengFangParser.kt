@@ -223,6 +223,12 @@ class ZhengFangParser(source: String, private val type: Int) : Parser(source) {
             if (weeks.isNotEmpty()) {
                 startWeek = weeks[0].toInt()
                 result[2] = startWeek
+                // W7-04：`{第5周` 这种单周写法只匹配到一个数字（weeks.size == 1），
+                // 原先只在 size > 1 的分支里写 result[3]，导致 endWeek 保持初始 0；
+                // 下游 Parser.convertCourses 会把 endWeek 夹成 1，于是 startWeek(5) > endWeek(1)，
+                // CourseBean.inWeek() 恒 false —— 这门课在网格里任何一周都不显示。
+                // 单周时 endWeek 就等于 startWeek。
+                result[3] = startWeek
             }
             if (weeks.size > 1) {
                 endWeek = weeks[1].toInt()

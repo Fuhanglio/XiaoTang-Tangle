@@ -50,8 +50,17 @@ class PekingParser(source: String) : Parser(source) {
                         val matchResult = Common.nodePattern1.find(timeInfo[1])
                         if (matchResult != null) {
                             val m = matchResult.value
-                            startNode = m.substringBefore('~').toInt()
-                            endNode = m.substringAfter('~').substringBefore('节').toInt()
+                            // W7-07：`nodePattern1 = \d{1,2}[~]*\d*节` 对"3节"这种单节写法也会命中，
+                            // 而单节里没有 '~'，`substringBefore('~')` 原样返回 "3节"，`.toInt()` 抛
+                            // NumberFormatException → 整所学校的导入都会失败。这里补上无 '~' 的分支。
+                            if (m.contains('~')) {
+                                startNode = m.substringBefore('~').toInt()
+                                endNode = m.substringAfter('~').substringBefore('节').toInt()
+                            } else {
+                                val single = m.substringBefore('节').trim().toIntOrNull() ?: startNode
+                                startNode = single
+                                endNode = single
+                            }
                         }
                         val room = if (timeInfo.size >= 3) {
                             timeInfo[2]

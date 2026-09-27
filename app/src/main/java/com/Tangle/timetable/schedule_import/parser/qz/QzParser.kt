@@ -22,6 +22,13 @@ open class QzParser(source: String) : Parser(source) {
                 "教室"
         ).text().trim() + courseHtml.getElementsByAttributeValue("title", "分组").text().trim()
         val weekStr = courseHtml.getElementsByAttributeValue("title", "周次(节次)").text().substringBefore("(周)")
+        // W7-09：`getElementsByAttributeValue(...).text()` 在属性不存在时返回**空串**，
+        // 空串 split(',') 得到 [""]，随后走 else 分支 `"".substringBefore('(').toInt()`
+        // 抛 NumberFormatException —— 页面 title 改名（"周次(节次)"→"周次"）或该课无周次属性时，
+        // 整所学校的导入都会失败。这里按"跳过这门课"处理，而不是抛异常。
+        // 本类是 QzBrParser / QzCrazyParser / QzWithNodeParser 的基类，
+        // QzBr/QzCrazy 不重写 convert，故此守卫对它们同样生效。
+        if (weekStr.isBlank()) return
         val weekList = weekStr.split(',')
         var startWeek = 0
         var endWeek = 0

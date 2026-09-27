@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.appcompat.widget.LinearLayoutCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import com.Tangle.timetable.R
 import com.Tangle.timetable.utils.Const
@@ -44,7 +45,7 @@ class PermissionGuideActivity : AppCompatActivity() {
 
         scrollContent.addView(AppCompatTextView(this).apply {
             text = "为保证桌面小部件能准时更新\n请开启以下权限"
-            setTextColor(getColor(com.Tangle.timetable.R.color.text_primary))
+            setTextColor(ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.text_primary))
             textSize = 20f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             gravity = Gravity.CENTER
@@ -95,6 +96,11 @@ class PermissionGuideActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // W8-02：用户很可能刚从系统「精确闹钟 / 电池优化 / 通知」页返回，
+        // 必须让进程级缓存失效，否则这次 rebuild() 读到的还是进页之前的旧结果 ——
+        // 用户明明开启了权限，界面上却仍显示「未开启」、`allSet` 恒 false、
+        // 按钮永远停在「稍后再说」，精确闹钟在本次进程内**永不启用**。
+        WidgetScheduler.invalidateExactCache()
         rebuild()
     }
 
@@ -142,15 +148,21 @@ class PermissionGuideActivity : AppCompatActivity() {
         val allSet = isBatteryWhitelisted() && isNotificationEnabled() &&
                 (Build.VERSION.SDK_INT < 31 || isExactAlarmOk())
         statusView.text = if (allSet) "关键权限已全部就绪 ✓" else "请逐项开启，完成后会自动识别"
-        statusView.setTextColor(if (allSet) getColor(com.Tangle.timetable.R.color.colorPrimary)
-        else getColor(com.Tangle.timetable.R.color.warn_orange))
+        statusView.setTextColor(if (allSet) ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.colorPrimary)
+        else ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.warn_orange))
 
         // 底部按钮固定在滚动区外，始终可见：主色实心 iOS 风格
         bottomArea.removeAllViews()
         bottomArea.addView(makeButton(if (allSet) "完成" else "稍后再说", !allSet) {
             getPrefer().edit { putBoolean(Const.KEY_PERMISSION_GUIDE_SHOWN, true) }
             if (allSet) {
-                WidgetScheduler.scheduleAll(this)
+                // W8-01：这里原来在主线程**同步**调 scheduleAll()，而它内部含近百次
+                // cancelAlarm + PendingIntent 注册 + 反射 + **同步 Room 查询**
+                // （AppDataBase 全局开了 allowMainThreadQueries，主线程不抛异常而是直接做 SQLite IO）。
+                // 冷启动首次建库/迁移、或课表较大时，点「完成」会明显卡顿（可达上百毫秒）。
+                // App.onCreate 早就把同一函数挪到 appScope(IO) 了，只有这里漏掉。
+                // 改走进程级异步入口（**不能**用 lifecycleScope：紧接着的 finish() 会把它取消）。
+                WidgetScheduler.scheduleAllAsync(applicationContext)
             }
             finish()
         }, LinearLayoutCompat.LayoutParams(LinearLayoutCompat.LayoutParams.MATCH_PARENT, dip(50)))
@@ -161,7 +173,7 @@ class PermissionGuideActivity : AppCompatActivity() {
         // 白色圆角 16 卡片 + 极淡阴影
         val item = LinearLayoutCompat(this).apply {
             orientation = LinearLayoutCompat.VERTICAL
-            background = GradientDrawableProxy.cardBg(getColor(com.Tangle.timetable.R.color.card_bg))
+            background = GradientDrawableProxy.cardBg(ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.card_bg))
             setPadding(dip(14), dip(14), dip(14), dip(14))
             elevation = dip(1).toFloat()
         }
@@ -174,7 +186,7 @@ class PermissionGuideActivity : AppCompatActivity() {
             background = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 cornerRadius = dip(10).toFloat()
-                setColor(getColor(blockColorRes))
+                setColor(ContextCompat.getColor(this@PermissionGuideActivity, blockColorRes))
             }
             gravity = Gravity.CENTER
             addView(androidx.appcompat.widget.AppCompatImageView(this@PermissionGuideActivity).apply {
@@ -184,7 +196,7 @@ class PermissionGuideActivity : AppCompatActivity() {
 
         titleRow.addView(AppCompatTextView(this).apply {
             text = title
-            setTextColor(getColor(com.Tangle.timetable.R.color.text_primary))
+            setTextColor(ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.text_primary))
             textSize = 16f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }, LinearLayoutCompat.LayoutParams(0, LinearLayoutCompat.LayoutParams.WRAP_CONTENT).apply { weight = 1f })
@@ -193,8 +205,8 @@ class PermissionGuideActivity : AppCompatActivity() {
         titleRow.addView(AppCompatTextView(this).apply {
             text = if (done) readyText else notReadyText
             textSize = 12f
-            val fg = if (done) getColor(com.Tangle.timetable.R.color.switch_on)
-            else getColor(com.Tangle.timetable.R.color.warn_orange)
+            val fg = if (done) ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.switch_on)
+            else ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.warn_orange)
             setTextColor(fg)
             setPadding(dip(10), dip(4), dip(10), dip(4))
             background = android.graphics.drawable.GradientDrawable().apply {
@@ -206,7 +218,7 @@ class PermissionGuideActivity : AppCompatActivity() {
         item.addView(titleRow)
         item.addView(AppCompatTextView(this).apply {
             text = desc
-            setTextColor(getColor(com.Tangle.timetable.R.color.text_secondary))
+            setTextColor(ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.text_secondary))
             textSize = 12f
             setLineSpacing(2f, 1f)
         }, LinearLayoutCompat.LayoutParams(LinearLayoutCompat.LayoutParams.MATCH_PARENT,
@@ -234,7 +246,7 @@ class PermissionGuideActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             textSize = 15f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            val accent = getColor(com.Tangle.timetable.R.color.colorPrimary)
+            val accent = ContextCompat.getColor(this@PermissionGuideActivity, com.Tangle.timetable.R.color.colorPrimary)
             setTextColor(if (primary) android.graphics.Color.WHITE else accent)
             background = android.graphics.drawable.GradientDrawable().apply {
                 cornerRadius = dip(14).toFloat()

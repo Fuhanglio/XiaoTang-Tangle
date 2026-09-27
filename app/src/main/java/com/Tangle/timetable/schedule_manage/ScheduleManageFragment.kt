@@ -11,6 +11,7 @@ import androidx.navigation.Navigation
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.content.Intent
+import android.util.Log
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -37,12 +38,21 @@ class ScheduleManageFragment : BaseFragment() {
         val rvTableList = view.findViewById<RecyclerView>(R.id.rv_list)
         launch {
             initTableRecyclerView(view, rvTableList, viewModel.initTableSelectList())
+            // W1-09：adapter 就绪后才放行「新建课表」入口（配对 onViewCreated 里的禁用）
+            fab_add.isEnabled = true
         }
         return view
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // W1-09：`adapter` 是 lateinit，只在 initTableRecyclerView 里赋值，而那一句排在
+        // `initTableSelectList()`（Room 查询）**之后**。冷启动进入本页后立刻「点 + → 填名 → 确定」的用户
+        // 会走到 `adapter.addData(...)` 时命中未初始化的 lateinit →
+        // UninitializedPropertyAccessException 崩溃。
+        // 两道保险：① adapter 就绪前禁用 fab（这里禁用，onCreateView 的协程里放行）；
+        //           ② 下面的回调里再判一次 `::adapter.isInitialized`（防别的路径提前启用）。
+        fab_add.isEnabled = false
         fab_add.setOnClickListener {
             val dialog = MaterialAlertDialogBuilder(requireContext())
                     .setTitle(R.string.setting_schedule_name)
@@ -62,7 +72,11 @@ class ScheduleManageFragment : BaseFragment() {
                         try {
                             val tableName = editText.text.toString()
                             val tableId = viewModel.addBlankTable(tableName)
-                            adapter.addData(TableSelectBean(id = tableId.toInt(), tableName = tableName))
+                            // W1-09：adapter 未就绪时不写列表 —— 课表数据**已经入库**，
+                            // 下次进入本页会自然带上；这里只要保证不崩、并如实提示结果。
+                            if (::adapter.isInitialized) {
+                                adapter.addData(TableSelectBean(id = tableId.toInt(), tableName = tableName))
+                            }
                             Toasty.success(context!!, "新建成功~").show()
                         } catch (e: Exception) {
                             Toasty.error(context!!, "操作失败>_<").show()
@@ -130,8 +144,20 @@ class ScheduleManageFragment : BaseFragment() {
                                     }
                                     // E：日历 Provider 批量删除是同步 IO，移到后台线程执行
                                     val resolver = activity!!.applicationContext.contentResolver
-                                    withContext(Dispatchers.Default) {
-                                        CalendarSyncUtils.deleteSyncedEventsAllProviders(resolver, tid)
+                                    // W8-08：本 App 声明了 READ_CALENDAR / WRITE_CALENDAR，但 v143 移除
+                                    // 「同步到系统日历」UI 时把权限申请代码一起删了，全工程已无任何
+                                    // requestPermissions / ActivityResultLauncher，hasPermission() 自身
+                                    // 也零调用者 → 这里直接 resolver.delete 必然抛 SecurityException，
+                                    // 又被 CalendarSyncUtils 的 catch (ignored: Exception) 吞掉：
+                                    // 不崩溃，但用户看不到任何提示、日历里上次写入的残留日程也清不掉。
+                                    // 现在显式检查并记录日志，把静默失败变成可排查的显式跳过。
+                                    if (CalendarSyncUtils.hasPermission(activity!!)) {
+                                        withContext(Dispatchers.Default) {
+                                            CalendarSyncUtils.deleteSyncedEventsAllProviders(resolver, tid)
+                                        }
+                                    } else {
+                                        Log.i("ScheduleManageFragment", "skip calendar cleanup for table $tid: " +
+                                                "READ_CALENDAR/WRITE_CALENDAR not granted")
                                     }
                                     AppDatabase.getDatabase(activity!!.applicationContext)
                                             .appWidgetDao().deleteAppWidgetByInfo(tid.toString())

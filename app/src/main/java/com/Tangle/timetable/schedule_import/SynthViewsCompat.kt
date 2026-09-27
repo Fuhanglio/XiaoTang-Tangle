@@ -1,7 +1,19 @@
-@file:Suppress("unused")
 
 package com.Tangle.timetable.schedule_import
 
+/*
+ * W1-12：本文件是**生成物**（原 kotlinx.android.synthetic 的类型化只读访问器）。
+ *
+ * 剪枝策略（2026-09-26 首次执行）：
+ *   · 只保留**有引用点**的访问器；全工程零引用的已删除（本轮 schedule_import 删了 10 个）
+ *   · 因此这里**不再有**文件级 `@file:Suppress("unused")` ——
+ *     留着它会让"以后新出现的未用属性"永远报不出来；现在由 lint 兜底
+ *   · 访问器本身还是"每次 findViewById"的语义（无缓存），
+ *     在**高频回调**里使用前请先缓存到字段（见 W1-06 / W1-07 / W1-08）
+ *
+ * ⚠ 增删本文件后必须重新编译：访问器少一个、而调用点还在，编译期就能发现；
+ *   反过来（调用点没了、访问器还在）没有任何报错，只能靠定期剪枝。
+ */
 import com.Tangle.timetable.R
 
 // ===== 自动生成：原 kotlinx.android.synthetic 的类型化只读访问器 =====
@@ -80,12 +92,6 @@ val HtmlImportFragment.fab_import: com.google.android.material.button.MaterialBu
 val HtmlImportFragment.ib_back: androidx.appcompat.widget.AppCompatImageButton
     get() = findViewCompat(R.id.ib_back)
 
-val HtmlImportFragment.ll_bar: androidx.appcompat.widget.LinearLayoutCompat
-    get() = findViewCompat(R.id.ll_bar)
-
-val HtmlImportFragment.sv_content: android.widget.ScrollView
-    get() = findViewCompat(R.id.sv_content)
-
 val HtmlImportFragment.tv_self: com.google.android.material.button.MaterialButton
     get() = findViewCompat(R.id.tv_self)
 
@@ -134,87 +140,6 @@ val ImportSettingFragment.tv_cover: com.google.android.material.button.MaterialB
 val ImportSettingFragment.tv_new: com.google.android.material.button.MaterialButton
     get() = findViewCompat(R.id.tv_new)
 
-val LoginWebActivity.btg_ports: com.google.android.material.button.MaterialButtonToggleGroup
-    get() = findViewCompat(R.id.btg_ports)
-
-val LoginWebActivity.btn_cancel: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.btn_cancel)
-
-val LoginWebActivity.btn_port1: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.btn_port1)
-
-val LoginWebActivity.btn_port2: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.btn_port2)
-
-val LoginWebActivity.btn_to_schedule: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.btn_to_schedule)
-
-val LoginWebActivity.et_code: com.google.android.material.textfield.TextInputEditText
-    get() = findViewCompat(R.id.et_code)
-
-val LoginWebActivity.et_id: com.google.android.material.textfield.TextInputEditText
-    get() = findViewCompat(R.id.et_id)
-
-val LoginWebActivity.et_pwd: com.google.android.material.textfield.TextInputEditText
-    get() = findViewCompat(R.id.et_pwd)
-
-val LoginWebActivity.fab_login: com.google.android.material.floatingactionbutton.FloatingActionButton
-    get() = findViewCompat(R.id.fab_login)
-
-val LoginWebActivity.input_code: com.google.android.material.textfield.TextInputLayout
-    get() = findViewCompat(R.id.input_code)
-
-val LoginWebActivity.input_id: com.google.android.material.textfield.TextInputLayout
-    get() = findViewCompat(R.id.input_id)
-
-val LoginWebActivity.input_pwd: com.google.android.material.textfield.TextInputLayout
-    get() = findViewCompat(R.id.input_pwd)
-
-val LoginWebActivity.iv_code: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.iv_code)
-
-val LoginWebActivity.iv_error: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.iv_error)
-
-val LoginWebActivity.iv_mask: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.iv_mask)
-
-val LoginWebActivity.ll_dialog: androidx.constraintlayout.widget.ConstraintLayout
-    get() = findViewCompat(R.id.ll_dialog)
-
-val LoginWebActivity.pb_loading: android.widget.ProgressBar
-    get() = findViewCompat(R.id.pb_loading)
-
-val LoginWebActivity.progress_bar: android.widget.ProgressBar
-    get() = findViewCompat(R.id.progress_bar)
-
-val LoginWebActivity.rl_code: android.widget.RelativeLayout
-    get() = findViewCompat(R.id.rl_code)
-
-val LoginWebActivity.scrim: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.scrim)
-
-val LoginWebActivity.sheet: com.google.android.material.transformation.TransformationChildCard
-    get() = findViewCompat(R.id.sheet)
-
-val LoginWebActivity.tv_dialog_title: androidx.appcompat.widget.AppCompatTextView
-    get() = findViewCompat(R.id.tv_dialog_title)
-
-val LoginWebActivity.tv_thanks: androidx.appcompat.widget.AppCompatTextView
-    get() = findViewCompat(R.id.tv_thanks)
-
-val LoginWebActivity.tv_tip: androidx.appcompat.widget.AppCompatTextView
-    get() = findViewCompat(R.id.tv_tip)
-
-val LoginWebActivity.tv_title: androidx.appcompat.widget.AppCompatTextView
-    get() = findViewCompat(R.id.tv_title)
-
-val LoginWebActivity.wp_term: cn.carbswang.android.numberpickerview.library.NumberPickerView
-    get() = findViewCompat(R.id.wp_term)
-
-val LoginWebActivity.wp_years: cn.carbswang.android.numberpickerview.library.NumberPickerView
-    get() = findViewCompat(R.id.wp_years)
-
 val LoginWebFragment.btg_ports: com.google.android.material.button.MaterialButtonToggleGroup
     get() = findViewCompat(R.id.btg_ports)
 
@@ -223,9 +148,6 @@ val LoginWebFragment.btn_cancel: com.google.android.material.button.MaterialButt
 
 val LoginWebFragment.btn_port1: com.google.android.material.button.MaterialButton
     get() = findViewCompat(R.id.btn_port1)
-
-val LoginWebFragment.btn_port2: com.google.android.material.button.MaterialButton
-    get() = findViewCompat(R.id.btn_port2)
 
 val LoginWebFragment.btn_to_schedule: com.google.android.material.button.MaterialButton
     get() = findViewCompat(R.id.btn_to_schedule)
@@ -257,9 +179,6 @@ val LoginWebFragment.iv_code: androidx.appcompat.widget.AppCompatImageView
 val LoginWebFragment.iv_error: androidx.appcompat.widget.AppCompatImageView
     get() = findViewCompat(R.id.iv_error)
 
-val LoginWebFragment.iv_mask: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.iv_mask)
-
 val LoginWebFragment.ll_dialog: androidx.constraintlayout.widget.ConstraintLayout
     get() = findViewCompat(R.id.ll_dialog)
 
@@ -272,14 +191,8 @@ val LoginWebFragment.progress_bar: android.widget.ProgressBar
 val LoginWebFragment.rl_code: android.widget.RelativeLayout
     get() = findViewCompat(R.id.rl_code)
 
-val LoginWebFragment.scrim: androidx.appcompat.widget.AppCompatImageView
-    get() = findViewCompat(R.id.scrim)
-
 val LoginWebFragment.sheet: com.google.android.material.transformation.TransformationChildCard
     get() = findViewCompat(R.id.sheet)
-
-val LoginWebFragment.tv_dialog_title: androidx.appcompat.widget.AppCompatTextView
-    get() = findViewCompat(R.id.tv_dialog_title)
 
 val LoginWebFragment.tv_thanks: androidx.appcompat.widget.AppCompatTextView
     get() = findViewCompat(R.id.tv_thanks)

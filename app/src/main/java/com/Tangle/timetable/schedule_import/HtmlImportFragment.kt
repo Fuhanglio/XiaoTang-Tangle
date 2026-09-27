@@ -128,9 +128,12 @@ class HtmlImportFragment : BaseFragment() {
             launch {
                 try {
                     val html = withContext(Dispatchers.IO) {
-                        activity!!.contentResolver.openInputStream(viewModel.htmlUri!!)!!.bufferedReader(
+                        // W5-06：带字节上限读取。原来一次 readText() 读全部内容，
+                        //  超大 HTML 会直接 OOM；超限现在会抛可读的业务异常。
+                        readImportText(
+                                activity!!.contentResolver, viewModel.htmlUri!!,
                                 if (cp_utf.isChecked) Charsets.UTF_8 else Charset.forName("gbk")
-                        ).readText()
+                        )
                     }
                     val result = viewModel.importSchedule(html)
                     Toasty.success(activity!!,

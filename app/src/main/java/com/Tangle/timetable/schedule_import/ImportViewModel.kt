@@ -2,8 +2,10 @@ package com.Tangle.timetable.schedule_import
 
 import android.app.Application
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.SparseArray
 import androidx.lifecycle.AndroidViewModel
+import androidx.room.withTransaction
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.Tangle.timetable.App
@@ -696,13 +698,40 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         return value
     }
 
+    /**
+     * W7-13：判断待导入文件是不是自家导出的 `.wakeup_schedule`。
+     *
+     * 原来只看 `uri.path`，但 SAF / 下载器 / 网盘返回的 `content://` URI 的 path 形如
+     * `msf:123`、`document/1234`，**不含显示名也不含扩展名**（MIME 由 `getType()` 提供、
+     * 落不进 path），于是自家导出的文件会被判"请确保文件类型正确"而拒绝导入。
+     * 改成三个信号取并集：显示名 → MIME → path，任一个命中即放行，
+     * 与 `importFromExcel` 的判法保持一致。
+     */
+    private fun looksLikeWakeupSchedule(uri: Uri): Boolean {
+        val resolver = getApplication<App>().contentResolver
+        val name = try {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        } catch (t: Throwable) {
+            null
+        }
+        if (name?.contains("wakeup_schedule") == true) return true
+        val mime = try {
+            resolver.getType(uri)
+        } catch (t: Throwable) {
+            null
+        }
+        if (mime?.contains("wakeup_schedule") == true) return true
+        return uri.path?.contains("wakeup_schedule") == true
+    }
+
     suspend fun importFromFile(uri: Uri?) {
         if (uri == null) throw Exception("读取文件失败")
-        if (uri.path?.contains("wakeup_schedule") != true) throw Exception("请确保文件类型正确")
+        if (!looksLikeWakeupSchedule(uri)) throw Exception("请确保文件类型正确")
         val gson = Gson()
+        // W5-06：改成带字节上限的读取，超大文件直接拒绝，不再 readLines() 一次读进内存。
         val list = withContext(Dispatchers.IO) {
-            getApplication<App>().contentResolver.openInputStream(uri)?.use { it.bufferedReader().readLines() }
-                ?: throw Exception("读取文件失败")
+            readImportText(getApplication<App>().contentResolver, uri).lines()
         }
         if (list.size < 5) throw Exception("文件格式不正确，请确认是 wakeup_schedule 导出的课程文件")
         val timeTable = gson.fromJson<TimeTableBean>(list[0], object : TypeToken<TimeTableBean>() {}.type)
@@ -710,6 +739,13 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         val table = gson.fromJson<TableBean>(list[2], object : TypeToken<TableBean>() {}.type)
         val courseBaseList = gson.fromJson<List<CourseBaseBean>>(list[3], object : TypeToken<List<CourseBaseBean>>() {}.type)
         val courseDetailList = gson.fromJson<List<CourseDetailBean>>(list[4], object : TypeToken<List<CourseDetailBean>>() {}.type)
+        // W7-12：先在事务外做一致性校验。外部文件可能被截断 / 手工编辑过，detail 的 id 在 base 里
+        //  找不到时 insertCourses 会撞外键约束，而前面已插入的时间表/课表会残留成"打不开的脏表"。
+        val baseIds = courseBaseList.mapTo(HashSet()) { it.id }
+        val orphan = courseDetailList.firstOrNull { it.id !in baseIds }
+        if (orphan != null) {
+            throw Exception("文件已损坏：课程明细 ${orphan.id} 找不到对应课程，已中止导入（未写入任何数据）")
+        }
         val timeTableId = timeTableDao.getMaxId() + 1
         timeTable.id = timeTableId
         timeTable.name = "分享_" + timeTable.name
@@ -729,17 +765,27 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         }
         // 外部文件可能带非法 color/startDate：入库前清洗（color 脏值会导致主界面渲染崩溃）
         courseBaseList.forEach {
-            if (!it.color.matches(Regex("^#[0-9a-fA-F]{6,8}$"))) {
+            // W7-14：Gson 反射能绕过 Kotlin 非空约束，旧版本导出的文件缺 color 字段时会写成 null，
+            //  原写法直接 `it.color.matches(...)` 会在 matches 内部 NPE。先取成可空局部变量再判。
+            val color: String? = it.color
+            if (color == null || !color.matches(Regex("^#[0-9a-fA-F]{6,8}$"))) {
                 it.color = "#007AFF"
             }
         }
-        if (!table.startDate.matches(Regex("^\\d{4}-\\d{1,2}-\\d{1,2}$"))) {
+        // W7-14：同一处的 startDate 也有同样问题（缺字段 → null → NPE）
+        val startDate: String? = table.startDate
+        if (startDate == null || !startDate.matches(Regex("^\\d{4}-\\d{1,2}-\\d{1,2}$"))) {
             table.startDate = com.Tangle.timetable.bean.currentWeekMonday()
         }
-        timeTableDao.insertTimeTable(timeTable)
-        timeDetailDao.insertTimeList(timeDetails)
-        tableDao.insertTable(table)
-        courseDao.insertCourses(courseBaseList, courseDetailList)
+        // W7-12：4 次写库必须原子。任一步失败要整体回滚，不能留下"空时间表 + 空课表"这种脏数据。
+        withContext(Dispatchers.IO) {
+            dataBase.withTransaction {
+                timeTableDao.insertTimeTable(timeTable)
+                timeDetailDao.insertTimeList(timeDetails)
+                tableDao.insertTable(table)
+                courseDao.insertCourses(courseBaseList, courseDetailList)
+            }
+        }
     }
 
     suspend fun importFromExcel(uri: Uri?): Int {
@@ -751,13 +797,14 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 mime?.contains("csv", ignoreCase = true) == true
         if (!looksLikeCsv) throw Exception("请确保选取的是 csv 文件")
         val source = withContext(Dispatchers.IO) {
-            val text = getApplication<App>().contentResolver.openInputStream(uri)
-                    ?.bufferedReader(Charset.forName("gbk"))?.readText() ?: throw Exception("读取文件失败")
+            // W5-06：两次读取都改成带字节上限的版本，超大 CSV 直接拒绝而不是 OOM。
+            val text = readImportText(
+                    getApplication<App>().contentResolver, uri, Charset.forName("gbk")
+            )
             if (text.startsWith("课程名称")) {
                 text
             } else {
-                getApplication<App>().contentResolver.openInputStream(uri)
-                        ?.bufferedReader()?.readText() ?: throw Exception("读取文件失败")
+                readImportText(getApplication<App>().contentResolver, uri)
             }
         }
         val parser = CSVParser(source)

@@ -140,9 +140,9 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    suspend fun exportData(uri: Uri?) {
+    /** R3-01：返回导出内容，供扩展名被选择器篡改时的「应用目录兜底另存」复用 */
+    suspend fun exportData(uri: Uri?): ByteArray {
         if (uri == null) throw Exception("无法获取文件")
-        val outputStream = getApplication<App>().contentResolver.openOutputStream(uri)
         val gson = Gson()
         val strBuilder = StringBuilder()
         strBuilder.append(gson.toJson(timeTableDao.getTimeTable(table.timeTable)))
@@ -150,9 +150,16 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         strBuilder.append("\n${gson.toJson(table)}")
         strBuilder.append("\n${gson.toJson(courseDao.getCourseBaseBeanOfTable(table.id))}")
         strBuilder.append("\n${gson.toJson(courseDao.getDetailOfTable(table.id))}")
+        // W8-10：SAF 的 openOutputStream 返回的是 ParcelFileDescriptor 支撑的流，
+        // 原实现取出后**从不 close**（既无 use{} 也无 finally）→ 连续多次「导出课表」会累积 fd，
+        // 最坏触发 "Too many open files"。这里用 use{} 保证正常与异常路径都会关闭。
+        // 同时把 openOutputStream 本身也移进 IO 上下文（它是一次真正的 IO 调用）。
+        val payload = strBuilder.toString().toByteArray()
         withContext(Dispatchers.IO) {
-            outputStream?.write(strBuilder.toString().toByteArray())
+            val outputStream = getApplication<App>().contentResolver.openOutputStream(uri)
+            outputStream?.use { out -> out.write(payload) }
         }
+        return payload
     }
 
     suspend fun exportICS(uri: Uri?) {

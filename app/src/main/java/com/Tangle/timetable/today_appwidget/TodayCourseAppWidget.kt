@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import com.Tangle.timetable.AppDatabase
 import com.Tangle.timetable.R
 import com.Tangle.timetable.bean.AppWidgetBean
@@ -57,8 +58,20 @@ class TodayCourseAppWidget : AppWidgetProvider() {
             val table = tableDao.getDefaultTable() ?: return@goAsync
             // 以系统给的实例 id 为准刷新，不再依赖数据库登记。
             // （今日小部件没有配置页，历史实现因此从未被登记，导致卡片一直停在布局的默认文案上）
+            //
+            // W5-04：但**不能无条件相信**入参里的 appWidgetIds，更不该顺手写库。
+            // 旧实现直接 `widgetDao.insertAppWidget(...)` —— 一旦收到带伪造 id 的广播
+            // （W3-10 修复前任意应用都能发），或系统传入刚被删除的实例 id，
+            // 这张表里就会留下**孤儿登记行**；而它还参与「上课提醒」判定与刷新调度识别。
+            // 现在两道关：① 只处理「入参 ∩ 系统当前真实实例」；
+            //            ② 写库前再用 getAppWidgetInfo(id) 确认实例确实存在。
+            // 正常路径下入参本就等于系统实例集合，交集不改变任何行为。
+            val live = appWidgetManager.getAppWidgetIds(
+                    ComponentName(context, TodayCourseAppWidget::class.java)).toHashSet()
             for (id in appWidgetIds) {
-                // 顺手补登记，供「上课提醒」判定与刷新调度识别
+                if (id !in live) continue
+                if (appWidgetManager.getAppWidgetInfo(id) == null) continue
+                // 补登记，供「上课提醒」判定与刷新调度识别（只登记真实存在的实例）
                 widgetDao.insertAppWidget(AppWidgetBean(id, 0, 1, ""))
                 AppWidgetUtils.refreshTodayWidget(context, appWidgetManager, id, table)
             }
@@ -74,6 +87,23 @@ class TodayCourseAppWidget : AppWidgetProvider() {
             for (id in appWidgetIds) {
                 widgetDao.deleteAppWidget(id)
             }
+        }
+    }
+
+    /**
+     * W3-2：resize / 横竖屏切换 / 桌面重建后系统把真实尺寸经本回调交进来，原先全工程无实现 →
+     * 尺寸档位要等下一个精确闹钟（最长一节课）或 30 分钟兜底 Worker 才更新，
+     * v162 的「竖屏 MAX 优先」修复在真机上首次添加时就用不上。
+     * 这里把系统给的 newOptions **直接透传**给 refreshTodayWidget：回调与
+     * `getAppWidgetOptions()` 的内部更新之间存在时序窗口，透传可避免读到尚未同步的旧值。
+     */
+    override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager,
+                                          appWidgetId: Int, newOptions: Bundle) {
+        val tableDao = AppDatabase.getDatabase(context).tableDao()
+        goAsync {
+            val table = tableDao.getDefaultTable() ?: return@goAsync
+            AppWidgetUtils.refreshTodayWidget(context, appWidgetManager, appWidgetId, table,
+                    overrideOptions = newOptions)
         }
     }
 }

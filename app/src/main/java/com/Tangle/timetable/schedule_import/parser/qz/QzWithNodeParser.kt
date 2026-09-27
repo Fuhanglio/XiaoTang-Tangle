@@ -33,6 +33,12 @@ class QzWithNodeParser(source: String) : QzParser(source) {
                     "周次(节次)"
             ).text().substringAfter(')').removeSurrounding("[", "]").split('-')
         }
+        // W7-09：本类独立重写了 convert（不经过 QzParser.convert），所以基类那道守卫管不到这里。
+        // weekStr 为空串时 weekList == [""] → `"".substringBefore('(').toInt()` 抛 NFE；
+        // nodeList 为空/首元素为空时 `nodeList.first().substringBefore('节').toInt()` 抛 NFE。
+        // 页面属性改名或该课缺属性时，按"跳过这门课"处理。
+        if (weekStr.isBlank()) return
+        if (nodeList.firstOrNull()?.isBlank() != false) return
         val weekList = weekStr.split(',')
         var startWeek = 0
         var endWeek = 0

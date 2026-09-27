@@ -22,6 +22,7 @@ import com.Tangle.timetable.schedule_import.login_school.jlu.UIMS
 import com.Tangle.timetable.schedule_import.login_school.suda.SudaXK
 import com.Tangle.timetable.utils.Utils
 import es.dmoral.toasty.Toasty
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import java.io.IOException
 import java.util.*
@@ -291,17 +292,28 @@ class LoginWebFragment : BaseFragment() {
 
     private fun refreshCode() {
         launch {
+            // W1-03：挂起返回时视图可能已销毁，而 `et_code` / `progress_bar` / `iv_code` /
+            // `iv_error` 都是**合成属性**（内部是 `(view ?: throw IllegalStateException).findViewById(...)!!`）。
+            // 原实现把它们的读写散在 try 内外两侧，于是出现最坏的一种情况：
+            // **「处理异常的代码」自己抛异常**（catch 里碰视图 → IllegalStateException），
+            // 既二次崩溃、又把原始异常彻底掩盖（用户看到的是"发生异常>_<null"这类无从排查的提示）。
+            // 两道防护：进入协程先判空，catch 里再判一次（视图可能在 await 期间被销毁）。
+            if (view == null) return@launch
             et_code.setText("")
             progress_bar.visibility = View.VISIBLE
             iv_code.visibility = View.INVISIBLE
             iv_error.visibility = View.INVISIBLE
             try {
                 val bitmap = viewModel.sudaXK?.getCheckCode()
+                if (view == null) return@launch
                 progress_bar.visibility = View.GONE
                 iv_code.visibility = View.VISIBLE
                 iv_error.visibility = View.INVISIBLE
                 iv_code.setImageBitmap(bitmap)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (view == null || !isAdded) return@launch
                 progress_bar.visibility = View.GONE
                 iv_code.visibility = View.INVISIBLE
                 iv_error.visibility = View.VISIBLE

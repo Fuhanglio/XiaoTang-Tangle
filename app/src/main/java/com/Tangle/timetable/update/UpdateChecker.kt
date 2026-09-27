@@ -3,8 +3,6 @@ package com.Tangle.timetable.update
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import com.Tangle.timetable.utils.Const
-import com.Tangle.timetable.utils.getPrefer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.ConnectException
@@ -13,17 +11,24 @@ import java.net.UnknownHostException
 
 object UpdateChecker {
 
+    /**
+     * W6-07：本函数**不再**用「跳过此版本」过滤结果。
+     *
+     * 原实现里 `Const.KEY_UPDATE_SKIP_VERSION` 被**无条件**用于过滤，而 manual 与 auto
+     * 共用本函数 → 用户点过「跳过此版本」后，再去关于页手动点「检查更新」会拿到
+     * [UpdateState.Latest]，弹一句「已是最新版本」，
+     * **把"我主动跳过了"伪装成"服务端确实没有新版"**，属误导。
+     *
+     * 现在：只要确实有更新就返回 [UpdateState.Available]。"是否被用户跳过"是**展示层**的事，
+     * 交给 UpdateManager / UpdateDialog 读偏好后再决定：自动检查静默跳过（不打扰），
+     * 手动检查照常弹窗但把中性按钮从「跳过此版本」改成「保持跳过」。
+     */
     suspend fun check(context: Context): UpdateState = withContext(Dispatchers.IO) {
         val (localCode, localName) = getLocalVersion(context)
-        val skipped = context.getPrefer().getString(Const.KEY_UPDATE_SKIP_VERSION, "") ?: ""
         return@withContext try {
             val info = UpdateClient.fetchLatest()
             val newer = isNewer(localCode, localName, info.versionCode, info.versionName)
-            if (newer && info.versionName != skipped) {
-                UpdateState.Available(info)
-            } else {
-                UpdateState.Latest
-            }
+            if (newer) UpdateState.Available(info) else UpdateState.Latest
         } catch (e: Exception) {
             if (isNetworkError(e)) UpdateState.NoNetwork else UpdateState.Error(e.message ?: "检查失败")
         }

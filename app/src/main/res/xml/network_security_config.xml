@@ -1,4 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  网络安全配置（W5-03 / W6-08）
+
+  ⚠ 为什么不把 base-config 一刀切换成 cleartextTrafficPermitted="false"：
+    本 App 内置的学校教务地址共 216 条，其中 **184 条是 http**（大量是校园网裸 IP，
+    如 http://202.116.160.170）。targetSdk 34 必然走本配置，一旦全局禁止明文，
+    这 184 所学校（占 85%）的导入会被**平台直接拦死**，而客户端无法自行绕过
+    —— 这些服务器根本不提供 https。
+    所以这里采用「白名单反向用」策略：
+      · base-config 继续允许明文：那是学校侧的历史包袱，不是本 App 的选择；
+      · 对本 App **自己的**基础设施域名显式禁止明文：这是本 App 唯一能自主决定、
+        且确实有供应链意义的通道（自动更新）。
+
+  下面两组 domain-config 的作用：即使将来某次改动（或被篡改的接口响应）给出一个
+  http:// 的更新地址，平台层也会直接拒绝，不必依赖调用方的自觉。
+  应用层还有第二道保险：UpdateClient 会拒绝任何非 https 的下载地址。
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true" />
+
+    <!-- 本 App 自己的通道：一律 HTTPS，禁止任何明文回退 -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <domain includeSubdomains="true">githubassets.com</domain>
+    </domain-config>
+
+    <!-- 常见第三方加速镜像的前缀域名：同样禁止明文（镜像只应是 https 代理） -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">ghproxy.net</domain>
+        <domain includeSubdomains="true">ghfast.top</domain>
+        <domain includeSubdomains="true">gh-proxy.com</domain>
+    </domain-config>
 </network-security-config>

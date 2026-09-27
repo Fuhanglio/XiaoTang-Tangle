@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- ⚠ W9-01：本文件的 id 只给「代码内建视图」用（布局 XML 里没有引用的那些）。
+         node 系列（anko_tv_node1 … anko_tv_node9993，共 30 项）的取用顺序已由
+         ScheduleUI.NODE_IDS 显式钉住：代码按 1-based 行号查 NODE_IDS[row]，
+         不再依赖 `R.id.anko_tv_node1 + 偏移` 这类算术。
+         ⇒ 因此：① 增/删 node 项时，同步增删 NODE_IDS 对应条目（上限由表长推出，无需再改数字）；
+                ② 重排这里的声明顺序只会整体平移 R 值，NODE_IDS 映射不受影响（但请勿随意重排）；
+                ③ 行号越界由 nodeId() 记日志并夹紧，不会静默别名到别的控件。
+         W9-05：下面已删除 9 个「从未被赋值/取用」的死 id；anko_layout（8 处使用）与
+         anko_navigation_bar_view（注释中引用）**保留**。 -->
     <item name="anko_cl_schedule" type="id" />
     <item name="anko_iv_bg" type="id" />
-    <item name="anko_iv_blur" type="id" />
     <item name="anko_tv_date" type="id" />
     <item name="anko_tv_week" type="id" />
     <item name="anko_tv_weekday" type="id" />
@@ -12,24 +20,25 @@
     <item name="anko_ib_more" type="id" />
     <item name="anko_ib_share" type="id" />
     <item name="anko_vp_schedule" type="id" />
-    <item name="anko_sb_week" type="id" />
     <item name="anko_nv" type="id" />
     <item name="anko_nv_end" type="id" />
-    <item name="anko_rv_table_name" type="id" />
     <item name="anko_drawer_layout" type="id" />
-    <item name="anko_navigation_bar_blur_layout" type="id" />
     <item name="anko_navigation_bar_view" type="id" />
 
-    <item name="anko_cl_fragment_schedule" type="id" />
-    <item name="anko_tv_title0" type="id" />
-    <item name="anko_tv_title0_1" type="id" />
-    <item name="anko_tv_title1" type="id" />
-    <item name="anko_tv_title2" type="id" />
-    <item name="anko_tv_title3" type="id" />
-    <item name="anko_tv_title4" type="id" />
-    <item name="anko_tv_title5" type="id" />
-    <item name="anko_tv_title6" type="id" />
-    <item name="anko_tv_title7" type="id" />
+    <!-- W9-06：title 系列已改为**语义化命名**（col0..col7 = 第 1..8 列）。
+         ⚠ 只改了名字，**声明顺序一个都没动** —— R 里的值是按声明顺序分配的，
+         顺序不变 ⇒ 所有 R.id 值都不变 ⇒ 代码里的 `R.id.anko_tv_title_col0 + i` 算术照旧成立。
+         改名前叫 anko_tv_title0 / anko_tv_title0_1 / anko_tv_title1..6，
+         名字里的数字与它在 R 里的序号**完全对不上**（"title1" 其实是第 3 个），
+         这正是台账 W9-06 说的"命名与序号两套体系并存"。 -->
+    <item name="anko_tv_title_col0" type="id" />
+    <item name="anko_tv_title_col1" type="id" />
+    <item name="anko_tv_title_col2" type="id" />
+    <item name="anko_tv_title_col3" type="id" />
+    <item name="anko_tv_title_col4" type="id" />
+    <item name="anko_tv_title_col5" type="id" />
+    <item name="anko_tv_title_col6" type="id" />
+    <item name="anko_tv_title_col7" type="id" />
     <item name="anko_sv_schedule" type="id" />
     <item name="anko_cl_content_panel" type="id" />
     <item name="anko_tv_node1" type="id" />
@@ -78,11 +87,8 @@
     <item name="anko_tv_prefix" type="id" />
     <item name="anko_tv_value" type="id" />
     <item name="anko_tv_unit" type="id" />
-    <item name="anko_switch" type="id" />
     <item name="anko_check_box" type="id" />
     <item name="anko_color_dot" type="id" />
-    <item name="anko_seek_bar" type="id" />
-    <item name="anko_quick_side_bar" type="id" />
     <item name="anko_empty_view" type="id" />
     <item name="anko_iv_chevron" type="id" />
     <item name="anko_icon_block" type="id" />

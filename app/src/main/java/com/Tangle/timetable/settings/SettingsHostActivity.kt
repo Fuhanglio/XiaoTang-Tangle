@@ -2,7 +2,8 @@ package com.Tangle.timetable.settings
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import androidx.lifecycle.ViewModelProviders
+// W4-12：已删除 `import androidx.lifecycle.ViewModelProviders` ——
+// 本文件从未使用它（全文件零引用），属 lifecycle-extensions 时代的残留 import
 import androidx.navigation.NavArgument
 import androidx.navigation.NavController
 import androidx.navigation.NavType

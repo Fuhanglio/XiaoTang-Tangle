@@ -1,7 +1,46 @@
 package com.Tangle.timetable.schedule_import
 
+import android.content.ContentResolver
+import android.net.Uri
 import com.Tangle.timetable.bean.CourseBaseBean
 import com.Tangle.timetable.schedule_import.bean.WeekBean
+import java.io.ByteArrayOutputStream
+import java.nio.charset.Charset
+
+/** W5-06：导入输入的字节上限。正常教务页源码 / 课表文件 / CSV 都远小于 1 MB，
+ *  超限直接拒绝，避免「一次 readText 把上百 MB 读进内存」造成 OOM。 */
+const val MAX_IMPORT_BYTES = 5 * 1024 * 1024
+
+/** W5-06：解析前的字符数上限。深度嵌套的畸形 HTML（billion-laughs 式）能让 Jsoup
+ *  长时间卡死并吃掉大量内存，超限直接拒绝解析。 */
+const val MAX_PARSE_CHARS = 2 * 1024 * 1024
+
+/**
+ * W5-06：带字节上限的读取。
+ *
+ * 边读边判，一旦越过 [MAX_IMPORT_BYTES] 立刻抛业务异常，**不把整段内容留在内存里**。
+ * 原来的 `readText()` / `readLines()` 对输入大小没有任何约束，用户误选一个大文件
+ * （或外部 App 投喂的 URI 指向超大内容）就会 OOM。
+ */
+fun readImportText(resolver: ContentResolver, uri: Uri,
+                   charset: Charset = Charsets.UTF_8): String {
+    val input = resolver.openInputStream(uri) ?: throw Exception("读取文件失败")
+    return input.use { stream ->
+        val out = ByteArrayOutputStream()
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = stream.read(buf)
+            if (n <= 0) break
+            out.write(buf, 0, n)
+            if (out.size() > MAX_IMPORT_BYTES) {
+                throw Exception(
+                        "文件过大（超过 ${MAX_IMPORT_BYTES / 1024 / 1024} MB），已拒绝导入"
+                )
+            }
+        }
+        out.toString(charset.name())
+    }
+}
 
 object Common {
 

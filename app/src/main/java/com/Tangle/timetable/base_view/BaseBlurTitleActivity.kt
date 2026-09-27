@@ -13,6 +13,7 @@ import androidx.annotation.LayoutRes
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import com.Tangle.timetable.R
 import splitties.dimensions.dip
@@ -51,7 +52,9 @@ abstract class BaseBlurTitleActivity : BaseActivity() {
         }
 
         return ConstraintLayout(this).apply {
-            setBackgroundColor(0xFFF5F5F7.toInt())
+            // W8-06：原为常量 0xFFF5F5F7（浅灰），绕过 values-night → 深色模式下浅灰底 + 白字不可读。
+            // 改走 page_bg（values=#F2F2F7 / values-night=#000000），由系统按当前主题解析。
+            setBackgroundColor(ContextCompat.getColor(context, R.color.page_bg))
             addView(ScrollView(context).apply {
                 overScrollMode = View.OVER_SCROLL_NEVER
                 isVerticalScrollBarEnabled = false
@@ -68,7 +71,9 @@ abstract class BaseBlurTitleActivity : BaseActivity() {
             addView(LinearLayout(context).apply {
                 id = R.id.anko_layout
                 setPadding(0, getStatusBarHeight(), 0, 0)
-                setBackgroundColor(0xFFF5F5F7.toInt())
+                // W8-06：原为常量 0xFFF5F5F7（浅灰），绕过 values-night → 深色模式下浅灰底 + 白字不可读。
+            // 改走 page_bg（values=#F2F2F7 / values-night=#000000），由系统按当前主题解析。
+            setBackgroundColor(ContextCompat.getColor(context, R.color.page_bg))
                 addView(ImageButton(context).apply {
                     setImageResource(R.drawable.ic_back)
                     setBackgroundResource(outValue.resourceId)

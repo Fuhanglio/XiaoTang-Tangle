@@ -14,6 +14,7 @@ import androidx.annotation.ColorInt
 import androidx.fragment.app.BaseDialogFragment
 import androidx.fragment.app.FragmentActivity
 import com.Tangle.timetable.R
+import com.google.android.material.textfield.TextInputEditText
 import splitties.resources.color
 
 class ColorPickerFragment : BaseDialogFragment(), ColorPickerView.OnColorChangedListener, TextWatcher {
@@ -23,6 +24,21 @@ class ColorPickerFragment : BaseDialogFragment(), ColorPickerView.OnColorChanged
     private var showAlphaSlider = false
     private var fromEditText = false
     private var dialogId: Int = 0
+
+    /**
+     * W1-06：把三个高频访问的视图缓存到字段。
+     *
+     * 本类原先用的是同包 `SynthViewsCompat.kt` 生成的只读属性 —— 它们**没有缓存**，
+     * 每次读取都是一次全树 `findViewById`（且 `view` 为 null 时会直接抛 IllegalStateException）。
+     * 而 `onColorChanged` 是取色盘**每帧**触发的回调：
+     *   `et_color` 取值 3 次 + `v_color` 1 次（`setHex` 内再 1 次）≈ **每帧 5 次全树查找**；
+     *   `et_color.setText()` 又会反向触发 `afterTextChanged`（再 3 次遍历）。
+     * 60fps 下就是 300+ 次/秒，拖拽期间主线程被拖慢会直接掉帧。
+     * 缓存后：`onColorChanged` 内 `findViewById` 次数 = 0。
+     */
+    private var etColor: TextInputEditText? = null
+    private var cpvColor: ColorPickerView? = null
+    private var vColor: View? = null
 
     override val layoutId: Int
         get() = R.layout.fragment_color_picker
@@ -40,37 +56,54 @@ class ColorPickerFragment : BaseDialogFragment(), ColorPickerView.OnColorChanged
         super.onSaveInstanceState(outState)
     }
 
+    /**
+     * W1-06：视图销毁时释放缓存引用。
+     * 取色盘与输入框的监听器是注册在**视图**上的，视图销毁后仍有极小的可能收到一次回调
+     * （例如 dismiss 动画期间），那时若还持有旧引用、又已经过时，就会操作到已销毁的视图。
+     */
+    override fun onDestroyView() {
+        etColor = null
+        cpvColor = null
+        vColor = null
+        super.onDestroyView()
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        cpv_color.setAlphaSliderVisible(showAlphaSlider)
-        cpv_color.setColor(color, true)
-        cpv_color.setOnColorChangedListener(this)
+        // W1-06：只在这里查一次，之后全部走缓存字段
+        etColor = view.findViewById(R.id.et_color)
+        cpvColor = view.findViewById(R.id.cpv_color)
+        vColor = view.findViewById(R.id.v_color)
+
+        cpvColor!!.setAlphaSliderVisible(showAlphaSlider)
+        cpvColor!!.setColor(color, true)
+        cpvColor!!.setOnColorChangedListener(this)
 
         if (!showAlphaSlider) {
-            et_color.filters = arrayOf<InputFilter>(InputFilter.LengthFilter(6))
+            etColor!!.filters = arrayOf<InputFilter>(InputFilter.LengthFilter(6))
         }
 
         view.setOnTouchListener { v, _ ->
-            if (v != et_color && et_color.hasFocus()) {
-                et_color.clearFocus()
+            if (v != etColor!! && etColor!!.hasFocus()) {
+                etColor!!.clearFocus()
                 val imm = activity!!.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(et_color.windowToken, 0)
-                et_color.clearFocus()
+                imm.hideSoftInputFromWindow(etColor!!.windowToken, 0)
+                etColor!!.clearFocus()
                 return@setOnTouchListener true
             }
             false
         }
 
         setHex(color)
-        v_color.setBackgroundColor(color)
+        vColor!!.setBackgroundColor(color)
 
-        et_color.addTextChangedListener(this)
+        etColor!!.addTextChangedListener(this)
 
-        et_color.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+        etColor!!.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 val imm = activity!!.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(et_color, InputMethodManager.SHOW_IMPLICIT)
+                imm.showSoftInput(etColor!!, InputMethodManager.SHOW_IMPLICIT)
             }
         }
 
@@ -90,36 +123,41 @@ class ColorPickerFragment : BaseDialogFragment(), ColorPickerView.OnColorChanged
 
     private fun setHex(color: Int) {
         if (showAlphaSlider) {
-            et_color.setText(String.format("%08X", color))
+            etColor!!.setText(String.format("%08X", color))
         } else {
-            et_color.setText(String.format("%06X", 0xFFFFFF and color))
+            etColor!!.setText(String.format("%06X", 0xFFFFFF and color))
         }
     }
 
     override fun onColorChanged(newColor: Int) {
         color = newColor
+        // W1-06：视图销毁后回调仍可能到达（取色盘的回调不受 Fragment 视图生命周期约束），必须早退。
+        // 否则 this 三个 `!!` 会直接 NPE —— 那是比原来的 IllegalStateException 更糟的结果。
+        if (etColor == null || vColor == null) return
         if (!fromEditText) {
             setHex(newColor)
-            if (et_color.hasFocus()) {
+            if (etColor!!.hasFocus()) {
                 val imm = activity!!.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.hideSoftInputFromWindow(et_color.windowToken, 0)
-                et_color.clearFocus()
+                imm.hideSoftInputFromWindow(etColor!!.windowToken, 0)
+                etColor!!.clearFocus()
             }
         }
         fromEditText = false
-        v_color.setBackgroundColor(newColor)
+        vColor!!.setBackgroundColor(newColor)
     }
 
     override fun afterTextChanged(s: Editable?) {
-        if (et_color.isFocused) {
+        // W1-06：同上，视图已销毁直接返回
+        if (etColor == null || cpvColor == null) return
+        if (etColor!!.isFocused) {
             val color = try {
                 parseColorString(s.toString())
             } catch (e: Exception) {
                 color(R.color.colorAccent)
             }
-            if (color != cpv_color.color) {
+            if (color != cpvColor!!.color) {
                 fromEditText = true
-                cpv_color.setColor(color, true)
+                cpvColor!!.setColor(color, true)
             }
         }
     }

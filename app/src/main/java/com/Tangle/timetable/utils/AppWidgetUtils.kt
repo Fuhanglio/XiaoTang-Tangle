@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.util.Log
 import android.content.Intent
+import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -22,17 +23,48 @@ import com.Tangle.timetable.widget.WidgetScheduler
 import com.Tangle.timetable.widget.WidgetUpdateReceiver
 import com.Tangle.timetable.utils.ThemeManager
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+
+/**
+ * 小部件刷新协程的**应用级单例作用域**（W8-09）。
+ *
+ * 原来 `goAsync` 的默认参数是 `GlobalScope`，各接收器都不传 scope → 刷新任务挂在全局
+ * 顶层作用域上，协程寿命与组件**完全脱钩**（虽然 try/catch(Throwable) + finally 的
+ * `result.finish()` 兜住了 crash 与广播超时，但归属是模糊的）。
+ *
+ * 换成显式声明的应用级作用域，语义上等价于「进程存活期」但**归属明确**：
+ * - `SupervisorJob()`：单个实例刷新失败不牵连同一 scope 上的其它任务
+ * - `Dispatchers.IO`：`refreshWidgetById` 内部是**同步 Room 查询**，
+ *   原来落在 `Dispatchers.Default`（CPU 池）上跑阻塞 IO 是错配，改到 IO 池
+ *
+ * 注：本文件里的 `goAsync` 是**顶层扩展函数**（不在 `object AppWidgetUtils` 内），
+ * 所以这个 val 也必须是顶层 private。
+ */
+private val widgetScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+/**
+ * W3-11：广播兜底的**整段时间预算**（毫秒）。
+ *
+ * 接收器的 onReceive 必须在约 10 秒内返回，这里留 8 秒给刷新，
+ * 超时抛 `TimeoutCancellationException`（CancellationException 的子类），
+ * 由下面的 `catch (t: Throwable)` 一并兜住，`finally` 里的 `result.finish()` 照常收尾。
+ */
+private const val GO_ASYNC_TIMEOUT_MS = 8_000L
 
 fun BroadcastReceiver.goAsync(
-        coroutineScope: CoroutineScope = GlobalScope,
+        coroutineScope: CoroutineScope = widgetScope,
         block: suspend () -> Unit
 ) {
     val result = goAsync()
     coroutineScope.launch {
         try {
-            block()
+            // W3-11：原来只有异常兜底，**没有时间预算** ——
+            // 一旦 refreshWidgetById 里某个 DAO 查询卡住（大库 / 首次建库迁移 / 磁盘忙），
+            // 协程会一直挂着，广播既没 finish 也没结束。加一层超时把它变成"有界的失败"。
+            withTimeout(GO_ASYNC_TIMEOUT_MS) { block() }
         } catch (t: Throwable) {
             // 关键保险：刷新里的任何异常都不能变成未捕获异常杀掉进程，
             // 否则小部件会停在布局默认的「加载中…」，直到下一个触发点才自愈
@@ -54,6 +86,47 @@ object AppWidgetUtils {
         // 显式限定本应用，否则 Android 8+ 隐式广播会被拒收/无人接收，改课后小部件实际不刷新
         intent.setPackage(context.packageName)
         context.sendBroadcast(intent)
+    }
+
+    /**
+     * 「点击卡片打开 App」的统一入口。
+     * W2-05：周课表卡与今日课程卡原先各写一遍 `getActivity(rc=0, Intent(SplashActivity))`，
+     * 两者的 filterEquals 完全相同，实际本来就是同一条 PendingIntent 记录。
+     * 抽成同一个函数后，「两个部件共用一条记录」成为显式意图，而不是看起来像偶然撞在一起。
+     */
+    private fun openAppPi(context: Context): PendingIntent =
+            PendingIntent.getActivity(context, PI_OPEN_APP,
+                    Intent(context, SplashActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    // 固定 PendingIntent 槽位。getActivity 与 getBroadcast 是两套独立命名空间
+    // （PI 身份 = 类型 + requestCode + filterEquals），下面三个互不冲突；
+    // 逐实例的槽位统一从 PI_NEXT_OPEN_APP_BASE 起算，与固定值刻意错开（见 W2-06）。
+    private const val PI_OPEN_APP = 0
+    private const val PI_OPEN_APP_REFRESH = 3
+    private const val PI_NEXT_OPEN_APP_BASE = 100_000
+
+    /**
+     * 卡片高度档位的**唯一事实来源**。
+     *
+     * W3-3：周课表卡与今日课程卡原先各写一套语义（周卡无条件 `MAX_HEIGHT` 优先；今日卡竖屏取
+     * `MAX_HEIGHT`、横屏取 `MIN_HEIGHT`）。同一台设备、同一组 options 下两者在横屏必然取值不同，
+     * 而 `minHeight != maxHeight`，**至少有一个是错的**，最多一个能对。统一到本函数后不再有两套口径。
+     *
+     * W3-4：**刻意不判断屏幕方向**。原实现用 `context.resources.configuration.orientation` 判定
+     * 竖/横屏，但小部件刷新绝大多数发生在后台 Receiver / Worker 里，此时进程可能长时间没有 Activity，
+     * AMS 不保证把旋转后的 Configuration 同步过来 → 读到的是上次有 UI 时的陈旧值，甚至
+     * `ORIENTATION_UNDEFINED(0)`（会被判成竖屏）。拿进程级 Configuration 去解释宿主（launcher）
+     * 给的 options，二者生命周期本就不同步，判方向必然失真。
+     *
+     * 取两者**较大值**：任一侧为 0 时自然回退到另一侧；两侧都不可用时落 `fallback`。
+     * 越界值（<=0 或 >2000dp）也视为不可用，避免脏 options 把行数算飞。
+     */
+    private fun currentSizeDp(options: Bundle, fallback: Int): Int {
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        val h = maxOf(minHeight, maxHeight)
+        return if (h in 1..2000) h else fallback
     }
 
     fun refreshScheduleWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextWeek: Boolean = false) {
@@ -104,14 +177,9 @@ object AppWidgetUtils {
         }
 
         // 显示几行：按卡片实际高度算（行高 24dp + 行距 2dp，标题区留 40dp，上下内边距共 24dp）
+        // W3-3/W3-4：改走 currentSizeDp（maxOf + 与方向解耦），不再在这里内联一套取法
         val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        val cardHeightDp = when {
-            maxHeight > 0 -> maxHeight
-            minHeight > 0 -> minHeight
-            else -> 200
-        }
+        val cardHeightDp = currentSizeDp(options, 200)
         val maxRows = ((cardHeightDp - 24 - 40 + 2) / 26).coerceIn(1, 7)
 
         // 每天一行，全部用显式 id 数组
@@ -162,9 +230,8 @@ object AppWidgetUtils {
             }
         }
 
-        // 点击标题或列表区域：打开 App
-        val intent = Intent(context, SplashActivity::class.java)
-        val pIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // 点击标题或列表区域：打开 App（与今日课程卡共用同一条 PendingIntent，见 openAppPi）
+        val pIntent = openAppPi(context)
         mRemoteViews.setOnClickPendingIntent(R.id.tv_weekTitle, pIntent)
         mRemoteViews.setOnClickPendingIntent(R.id.ll_week, pIntent)
 
@@ -185,14 +252,20 @@ object AppWidgetUtils {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_refresh, refreshPi)
 
-        // “+”：直接打开添加课程页，临时加一两节课不用再走教务导入
+        // “+”：直接打开添加课程页，临时加一两节课不用再走教务导入。
+        // W3-9（=W2-01）：requestCode 必须**逐实例唯一**。原来固定写 5，而 Intent 里带的是
+        // 逐实例不同的 extras（tableId / maxWeek / nodes），但 PendingIntent 的身份比较
+        // （Intent.filterEquals）**不含 extras** → 多实例绑不同课表时共用同一条记录，
+        // FLAG_UPDATE_CURRENT 会让后刷新的实例把 extras 覆写掉，点「+」进的是别的课表。
+        // 改为 rc = appWidgetId：与 rc=0（SplashActivity）/ rc=6（BirthdayReminderActivity）
+        // 同处 getActivity 命名空间，但 component 不同，filterEquals 已天然隔离。
         val addIntent = Intent(context, AddCourseActivity::class.java).apply {
             putExtra("tableId", tableBean.id)
             putExtra("maxWeek", tableBean.maxWeek)
             putExtra("nodes", tableBean.nodes)
             putExtra("id", -1)
         }
-        val addPi = PendingIntent.getActivity(context, 5, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val addPi = PendingIntent.getActivity(context, appWidgetId, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_add, addPi)
 
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
@@ -228,7 +301,7 @@ object AppWidgetUtils {
      *   今天课全上完时自动预告明天；课程开始/结束闹钟与每日重算触发的都是自动模式；
      * - manual=true：iv_next/iv_back 的临时查看（强制显示 nextDay 指定的一天）。
      */
-    fun refreshTodayWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextDay: Boolean = false, manual: Boolean = false) {
+    fun refreshTodayWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextDay: Boolean = false, manual: Boolean = false, overrideOptions: Bundle? = null) {
         try {
         val mRemoteViews = RemoteViews(context.packageName, R.layout.today_course_app_widget)
 
@@ -249,26 +322,16 @@ object AppWidgetUtils {
         val subColor = 0xFF8E8E93.toInt()
 
         // 本次显示几门课：按卡片实际高度算。
-        // 官方语义：OPTION_APPWIDGET_MAX_HEIGHT 是竖屏当前高度，OPTION_APPWIDGET_MIN_HEIGHT 是横屏高度。
-        // 旧实现优先取 MIN_HEIGHT，竖屏下拿到的是横屏的较小值 → 行数被低估，
-        // 实测症状：标题写「共2门课」却只渲染 1 门（v162 修；周部件 refreshScheduleWidget 一直就是 MAX 优先，
-        // 今日部件此处方向写反了）。现按当前屏幕方向取对应值，另一侧作回退（兼容 resize 后不回传的桌面），
-        // 都没有就按三格估。
+        // v162 曾按「竖屏取 MAX_HEIGHT / 横屏取 MIN_HEIGHT」修过一次行数被低估的问题，
+        // 但那套口径与周课表卡（无条件 MAX 优先）互相矛盾，且判方向依赖进程级 Configuration。
+        // W3-3/W3-4：统一改走 currentSizeDp（maxOf + 与方向解耦），两处口径合一。
+        // W3-2：resize / 横竖屏切换时系统会把新 options 交给 onAppWidgetOptionsChanged，
+        // overrideOptions 就是那条回调带进来的值；有它就用它，避免再去读可能尚未同步的
+        // getAppWidgetOptions（回调 与 manager 内部更新之间存在时序窗口）。
         // 一行课程的实际消耗：上下内边距 20 + 标题区 36 + 列表上间距 4 + 行高 44 = 104，
         // 之后每多一行加 48（行高 44 + 行距 4）；两种排列的行高与间距一致，共用同一个公式。
-        val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
-        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-        val isPortrait = context.resources.configuration.orientation !=
-                android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val reportedHeight = when {
-            isPortrait && maxHeight > 0 -> maxHeight
-            !isPortrait && minHeight > 0 -> minHeight
-            minHeight > 0 -> minHeight
-            maxHeight > 0 -> maxHeight
-            else -> 0
-        }
-        val cardHeightDp = if (reportedHeight in 1..2000) reportedHeight else 240
+        val options = overrideOptions ?: appWidgetManager.getAppWidgetOptions(appWidgetId)
+        val cardHeightDp = currentSizeDp(options, 240)
         val compact = context.getPrefer().getInt(Const.KEY_TODAY_CARD_LAYOUT, 0) == 1
         val maxRows = ((cardHeightDp - 56) / 48).coerceIn(1, 4)
         val maxGridRows = ((cardHeightDp - 56) / 48).coerceIn(1, 3)
@@ -555,12 +618,12 @@ object AppWidgetUtils {
             mRemoteViews.setViewVisibility(R.id.ll_birthday, View.GONE)
         }
 
-        val intent = Intent(context, SplashActivity::class.java)
-        val pIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // 点击标题：打开 App（与周课表卡共用同一条 PendingIntent，见 openAppPi）
+        val pIntent = openAppPi(context)
         mRemoteViews.setOnClickPendingIntent(R.id.tv_headerTitle, pIntent)
 
         // 点击整个列表区域：先刷新数据再打开 App
-        val openPi = PendingIntent.getBroadcast(context, 3,
+        val openPi = PendingIntent.getBroadcast(context, PI_OPEN_APP_REFRESH,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.ll_course, openPi)
@@ -617,8 +680,12 @@ object AppWidgetUtils {
             // 渲染抛异常时也要把布局默认的「加载中…」顶掉：推一张最小空态卡，
             // 等下一次闹钟 / 亮屏 / 30 分钟兜底触发时再自愈。
             // v146：原来靠「空态大按钮 + 刷新图标」做重试入口，两者都已被删除；
-            // 现在改为：隐藏课程行/网格/生日块，显示 ll_empty 并把文字换成「刷新失败」，
-            // 点击头部标题即可触发刷新（pIntent 指向 App，进 App 会重新拉数据）。
+            // 现在改为：隐藏课程行/网格/生日块，显示 ll_empty 并把文字换成「刷新失败」。
+            // W3-5：兜底卡是**新建**的 RemoteViews，不会继承正常路径的 click 设置，
+            // 原来只写了「点这里重试」「点卡片头部重试」两行文案却**没有 setOnClickPendingIntent**，
+            // 整张卡没有任何可点区域 → 文案与能力不一致。这里补上头部标题与空态区两条点击。
+            // PI 复用 openAppPi（rc=PI_OPEN_APP 的 SplashActivity getActivity），
+            // 与正常路径的「点标题打开 App」是同一条记录，不新增槽位。
             try {
                 val rv = RemoteViews(context.packageName, R.layout.today_course_app_widget)
                 rv.setTextViewText(R.id.tv_headerTitle, "今日课程")
@@ -631,6 +698,9 @@ object AppWidgetUtils {
                 rv.setTextViewText(R.id.tv_emptyPhrase, "刷新失败")
                 rv.setTextViewText(R.id.tv_emptyHint, "点卡片头部重试")
                 rv.setViewVisibility(R.id.tv_emptyHint, View.VISIBLE)
+                val retryPi = openAppPi(context)
+                rv.setOnClickPendingIntent(R.id.tv_headerTitle, retryPi)
+                rv.setOnClickPendingIntent(R.id.ll_empty, retryPi)
                 appWidgetManager.updateAppWidget(appWidgetId, rv)
             } catch (t2: Throwable) {
                 // 兜底也失败就只记日志，等下一次触发
@@ -672,8 +742,12 @@ object AppWidgetUtils {
                     })
         }
 
-        // 点击：先刷新再打开 App
-        val openPi = PendingIntent.getBroadcast(context, appWidgetId,
+        // 点击：先刷新再打开 App。
+        // W2-06：requestCode 由裸 appWidgetId 改为 PI_NEXT_OPEN_APP_BASE + appWidgetId。
+        // 原来它与今日卡列表区的固定槽位 3 同处 getBroadcast 命名空间，且两条 Intent 完全相同
+        // （WidgetUpdateReceiver + WIDGET_OPEN_APP）→ 只要某个「下一节课」实例的 appWidgetId
+        // 恰好为 3 就命中同一条 PendingIntent 记录，任一方将来加 extras 就会静默串台。
+        val openPi = PendingIntent.getBroadcast(context, PI_NEXT_OPEN_APP_BASE + appWidgetId,
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         rv.setOnClickPendingIntent(R.id.next_root, openPi)

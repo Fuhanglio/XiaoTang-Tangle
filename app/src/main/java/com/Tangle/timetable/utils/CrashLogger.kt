@@ -6,6 +6,10 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -22,6 +26,19 @@ object CrashLogger {
     private var appContext: Context? = null
 
     private const val TAG = "CrashLogger"
+
+    /**
+     * `logCaught` 专用的后台落盘作用域（W8-11）。
+     *
+     * `logCaught` 被设计成"无 Context、随取随用"，原来在**调用线程**同步落盘
+     * （MediaStore `insert` + `openOutputStream` + `write`，失败还要退到私有目录再写一次）。
+     * 而它的触发点之一 `WidgetScheduler.setAlarm / canScheduleExact` 的 catch 位于
+     * **引导页主线程路径**上（用户点「完成」时 `setAlarm` 抛错）→ 变成"主线程做 ContentResolver IO"。
+     *
+     * 改为丢到自己的 IO 作用域；`SupervisorJob` 保证落盘失败不影响其它日志任务。
+     * 注意：崩溃处理器 `install()` 里的 `write` **保持同步**，必须保证进程退出前写完。
+     */
+    private val io = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun install(context: Context) {
         try {
@@ -41,11 +58,24 @@ object CrashLogger {
         }
     }
 
-    /** 记录「被 try/catch 吞掉」的异常（不崩溃但会影响功能），写进「下载」目录便于取回 */
+    /**
+     * 记录「被 try/catch 吞掉」的异常（不崩溃但会影响功能），写进「下载」目录便于取回。
+     *
+     * W8-11：写盘动作丢到 [io] 后台作用域，**不在调用线程同步落盘**。
+     * 「调用线程名」在切线程**之前**取好，否则记下来的是 IO 线程名，失去排查价值。
+     */
     fun logCaught(tag: String, throwable: Throwable) {
         try {
             val ctx = appContext ?: return
-            write(ctx, Thread.currentThread(), throwable, "caught_" + tag)
+            val thread = Thread.currentThread()
+            io.launch {
+                try {
+                    write(ctx, thread, throwable, "caught_" + tag)
+                } catch (t: Throwable) {
+                    // 后台落盘失败也不能影响主流程
+                    Log.e(TAG, "后台写日志失败", t)
+                }
+            }
         } catch (t: Throwable) {
         }
     }
@@ -59,7 +89,13 @@ object CrashLogger {
         sb.append("thread: ").append(thread.name).append('\n')
         try {
             val pi = context.packageManager.getPackageInfo(context.packageName, 0)
-            sb.append("version: ").append(pi.versionName).append(" (").append(pi.versionCode).append(')').append('\n')
+            // W6-14：统一 longVersionCode（API 28+）；低系统读废弃 int 字段转 Long（B14 的 E14）
+            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pi.longVersionCode
+            } else {
+                @Suppress("DEPRECATION") pi.versionCode.toLong()
+            }
+            sb.append("version: ").append(pi.versionName).append(" (").append(versionCode).append(')').append('\n')
         } catch (t: Throwable) {
         }
         sb.append('\n').append(Log.getStackTraceString(throwable))

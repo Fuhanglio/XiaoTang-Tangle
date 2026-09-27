@@ -22,12 +22,12 @@ class MobileHub(private var user: String, private var password: String) {
 
     private var httpClient = OkHttpClient.Builder()
             .cookieJar(object : CookieJar {
-                override fun saveFromResponse(url: HttpUrl, cookies: MutableList<Cookie>) {
-                    cookieStore.put(url.host(), cookies)
+                override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+                    cookieStore.put(url.host, cookies)
                 }
 
                 override fun loadForRequest(url: HttpUrl): MutableList<Cookie> {
-                    val cookies = cookieStore[url.host()]
+                    val cookies = cookieStore[url.host]
 
                     val ret = cookies?.toMutableList() ?: ArrayList()
                     return ret
@@ -52,7 +52,7 @@ class MobileHub(private var user: String, private var password: String) {
                 .build()
 
         val response = withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
-        val bodyString = withContext(Dispatchers.IO) { response.body()!!.string() }
+        val bodyString = withContext(Dispatchers.IO) { response.body!!.string() }
 
         var matchResult = regexLt.find(bodyString) ?: throw Exception("页面加载失败")
         lt = matchResult.groupValues.last()
@@ -89,7 +89,7 @@ class MobileHub(private var user: String, private var password: String) {
 
         val response = withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
 
-        if (response.request().url().toString().contains("login")) {
+        if (response.request.url.toString().contains("login")) {
             throw PasswordErrorException("学号或密码错误，请检查后再输入")
         }
     }
@@ -103,7 +103,7 @@ class MobileHub(private var user: String, private var password: String) {
 
         val response = withContext(Dispatchers.IO) { httpClient.newCall(request).execute() }
 
-        courseHTML = withContext(Dispatchers.IO) { response.body()!!.string() }
+        courseHTML = withContext(Dispatchers.IO) { response.body!!.string() }
 
         if (courseHTML.contains("failed to connect")) {
             throw NetworkErrorException("无法访问HUB系统，请检查是否连接校园网")

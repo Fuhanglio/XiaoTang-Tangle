@@ -1,10 +1,7 @@
 package com.Tangle.timetable.schedule_import.parser
 
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
 import android.os.Environment
-import android.provider.MediaStore
 import android.util.Log
 import com.Tangle.timetable.schedule_import.bean.Course
 import org.jsoup.Jsoup
@@ -38,10 +35,14 @@ class NewZFParser(source: String) : Parser(source) {
         private const val TAG = "NewZFParser"
 
         /**
-         * 导入诊断：把抓取到的原始 HTML 存到公共 Download 目录，方便用户直接发给开发者排查。
+         * 导入诊断：把抓取到的原始 HTML 存到**应用私有目录**，方便用户按需取出发给开发者排查。
          *
-         * - Android 10+：走 MediaStore 写入公共 Download（无需任何权限，用户能在「文件管理 → 下载」里直接看到）
-         * - Android 9-：写 app-specific external dir（免权限）
+         * - 统一写 `getExternalFilesDir(DIRECTORY_DOWNLOADS)`
+         *   = `Android/data/<包名>/files/Download/`（免权限，取文件需文件管理器或 USB）
+         *
+         * W5-08：**不再写公共 Download**。落盘内容是整页教务 HTML（含学号 / 姓名 / 登录后页面结构），
+         * 而公共 Download 对其他应用可见、还可能被云备份同步带走 —— 诊断需求不该以长期外露
+         * 个人敏感数据为代价。需要排查时由用户自己把文件导出即可。
          *
          * 文件开头附带一段诊断注释（解析出的课程数 / 课程列表 / 明细），
          * 便于对照「页面里实际有什么」与「解析出了什么」，定位"导入不全"类问题。
@@ -59,27 +60,20 @@ class NewZFParser(source: String) : Parser(source) {
                         "$note\n" +
                         "抓取时间: $ts\n" +
                         "HTML 长度: ${html.length}\n" +
+                        "⚠ 本文件是教务系统整页 HTML，可能包含学号 / 姓名 / 课表等信息，\n" +
+                        "  仅用于排查「导入不全」，请勿外传，排查完请自行删除。\n" +
                         "================================== -->\n$html"
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val values = ContentValues().apply {
-                        put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                        put(MediaStore.Downloads.MIME_TYPE, "text/html")
-                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                    }
-                    val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    if (uri != null) {
-                        context.contentResolver.openOutputStream(uri)?.use {
-                            it.write(content.toByteArray(Charsets.UTF_8))
-                        }
-                        Log.w(TAG, "=== 导入诊断：已保存 Download/$fileName （${html.length} chars） ===")
-                        "Download/$fileName"
-                    } else {
-                        writeToAppDir(context, fileName, content)
-                    }
-                } else {
-                    writeToAppDir(context, fileName, content)
-                }
+                // W5-08：**只写应用私有目录**（原来 API 29+ 走 MediaStore 写公共 Download）。
+                // 原实现有三个问题：
+                //   ① 公共 Download 对其他应用 / 文件管理器可见，还可能被云备份同步带走，
+                //      而这里落盘的是**整页教务 HTML**（含学号、姓名、登录后页面结构）；
+                //   ② 用户并不知道"导入课表"会往下载目录丢文件，属**隐式**隐私外露；
+                //   ③ 诊断需求与隐私边界没有分离 —— 为了排查"导入不全"而长期落盘敏感页面。
+                // 改为 getExternalFilesDir()（Android/data/<包名>/files/Download/）：
+                // 需要时仍能通过文件管理器 / USB 取到，但**不再对其它应用可见**，
+                // 也不再出现在用户的"下载"列表里。诊断能力保留，外露面收敛。
+                writeToAppDir(context, fileName, content)
             } catch (t: Throwable) {
                 Log.e(TAG, "诊断 dump 失败: ${t.message}")
                 null

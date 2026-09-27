@@ -41,6 +41,11 @@ class CourseManageFragment : BaseFragment() {
                               savedInstanceState: Bundle?): View? {
         val view = inflater.inflate(R.layout.fragment_list_manage, container, false)
         if (table == null) {
+            // W1-10：本实例没有目标课表（没带 selectedTable 参数就被创建，例如导航误建）。
+            // 原实现只 `return view`，但 onViewCreated 里的监听器照常装上 →
+            // 点 + 时先行 `table!!.id` NPE；点「清空」时 `adapter.data` 抛
+            // UninitializedPropertyAccessException（adapter 只在 initRecyclerView 里赋值，
+            // 而那一句根本没机会执行）。下面对应的入口已在 onViewCreated 里禁掉。
             return view
         }
         val rvCourseList = view.findViewById<RecyclerView>(R.id.rv_list)
@@ -55,7 +60,17 @@ class CourseManageFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // W1-10：没有目标课表 → 两个会碰 table / adapter 的入口直接禁用，页面退化为只读空壳，
+        // 而不是"点一下就崩"。监听器也不装，从根上避免 `table!!` 被解引用。
+        if (table == null) {
+            fab_add.isEnabled = false
+            (activity as? ScheduleManageActivity)?.subButton?.isEnabled = false
+            return
+        }
         fab_add.setOnClickListener {
+            // W1-10：冷启动时 DAO 列表可能还没加载完、adapter 尚未初始化。
+            // 此时即使把课表信息带过去，返回后 `adapter.addData` 也会崩，所以先不响应。
+            if (!::adapter.isInitialized) return@setOnClickListener
             val intent = Intent(activity, AddCourseActivity::class.java).apply {
                 putExtra("id", -1)
                 putExtra("tableId", table!!.id)
@@ -64,7 +79,7 @@ class CourseManageFragment : BaseFragment() {
             }
             startActivityForResult(intent, Const.REQUEST_CODE_ADD_COURSE)
         }
-        (activity as ScheduleManageActivity).subButton?.setOnClickListener {
+        (activity as? ScheduleManageActivity)?.subButton?.setOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                     .setTitle("提示")
                     .setMessage("真的要清空课表吗？这将无法恢复。")
@@ -73,8 +88,11 @@ class CourseManageFragment : BaseFragment() {
                         launch {
                             try {
                                 viewModel.clearTable(table!!.id)
-                                adapter.data.clear()
-                                adapter.notifyDataSetChanged()
+                                // W1-10：清空已入库，列表若还没就绪就跳过 UI 刷新（数据是干净的）
+                                if (::adapter.isInitialized) {
+                                    adapter.data.clear()
+                                    adapter.notifyDataSetChanged()
+                                }
                                 // 清空后同步刷新桌面小部件（原来只有删单课刷新、清空不刷新）
                                 context!!.sendBroadcast(
                                         Intent(context!!, com.Tangle.timetable.widget.WidgetUpdateReceiver::class.java)
@@ -157,6 +175,10 @@ class CourseManageFragment : BaseFragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode == Activity.RESULT_OK && requestCode == Const.REQUEST_CODE_ADD_COURSE) {
+            // W1-10：返回时 DAO 列表可能仍未加载完、adapter 还没初始化 →
+            // 原来直接 addData 会抛 UninitializedPropertyAccessException。
+            // 直接返回是安全的：新课程**已经入库**，正在途中的那次加载会把它一并带出来。
+            if (!::adapter.isInitialized) return
             data?.extras?.getParcelable<CourseBaseBean>("course")?.let {
                 adapter.addData(it)
             }

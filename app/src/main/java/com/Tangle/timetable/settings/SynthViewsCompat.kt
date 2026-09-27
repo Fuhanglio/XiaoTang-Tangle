@@ -1,7 +1,19 @@
-@file:Suppress("unused")
 
 package com.Tangle.timetable.settings
 
+/*
+ * W1-12：本文件是**生成物**（原 kotlinx.android.synthetic 的类型化只读访问器）。
+ *
+ * 剪枝策略（2026-09-26 首次执行）：
+ *   · 只保留**有引用点**的访问器；全工程零引用的已删除（本轮 schedule_import 删了 10 个）
+ *   · 因此这里**不再有**文件级 `@file:Suppress("unused")` ——
+ *     留着它会让"以后新出现的未用属性"永远报不出来；现在由 lint 兜底
+ *   · 访问器本身还是"每次 findViewById"的语义（无缓存），
+ *     在**高频回调**里使用前请先缓存到字段（见 W1-06 / W1-07 / W1-08）
+ *
+ * ⚠ 增删本文件后必须重新编译：访问器少一个、而调用点还在，编译期就能发现；
+ *   反过来（调用点没了、访问器还在）没有任何报错，只能靠定期剪枝。
+ */
 import com.Tangle.timetable.R
 
 // ===== 自动生成：原 kotlinx.android.synthetic 的类型化只读访问器 =====

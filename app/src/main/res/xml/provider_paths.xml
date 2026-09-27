@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-files-path name="updates" path="updates/" />
+    <!-- R3-01：导出兜底通道 —— 个别 ROM 的选择器不支持 DocumentsContract.renameDocument、
+         且按 MIME 把导出文件名改成 .bin 时，导出内容会以正确文件名
+         （表名.wakeup_schedule）另存到 getExternalFilesDir(DIRECTORY_DOWNLOADS)
+         （即 Android/data/<包名>/files/Download/）再经 FileProvider 分享出去 -->
+    <external-files-path name="exports" path="Download/" />
 </paths>

@@ -8,6 +8,7 @@ import androidx.annotation.LayoutRes
 import androidx.appcompat.widget.AppCompatImageButton
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.appcompat.widget.LinearLayoutCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import com.Tangle.timetable.R
 import splitties.dimensions.dip
@@ -31,7 +32,9 @@ abstract class BaseTitleActivity : BaseActivity() {
     }
 
     open fun createTitleBar() = LinearLayoutCompat(this).apply {
-        setBackgroundColor(0xFFF5F5F7.toInt())
+        // W8-06：原为常量 0xFFF5F5F7（浅灰），绕过 values-night → 深色模式下浅灰底 + 白字标题不可读。
+        // 改走 page_bg（values=#F2F2F7 / values-night=#000000），由系统按当前主题解析。
+        setBackgroundColor(ContextCompat.getColor(context, R.color.page_bg))
         setPadding(0, getStatusBarHeight(), 0, 0)
         val outValue = TypedValue()
         theme.resolveAttribute(R.attr.selectableItemBackgroundBorderless, outValue, true)

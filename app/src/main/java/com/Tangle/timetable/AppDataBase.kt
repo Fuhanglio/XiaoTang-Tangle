@@ -48,22 +48,39 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * B1：老库（PRAGMA user_version 在 1~6）备份。
-         * 在 Room 打开/重建数据库之前，只读探测 wakeup 库文件版本，
-         * 命中老版本就把 wakeup / wakeup-wal / wakeup-shm 三个文件复制到
+         * 老库（PRAGMA user_version 在 1~6）备份（B1 引入，W7-05 加固）。
+         * 在 Room 打开/重建数据库之前探测 wakeup 库文件版本，命中老版本就把
+         * wakeup / wakeup-wal / wakeup-shm 三个文件复制到
          * getExternalFilesDir(null)/db_backup/wakeup_v<旧版本>_<时间戳>.db（含 -wal/-shm）。
+         *
+         * W7-05：旧实现只有一条探测通道（只读打开），且 `oldVersion !in 1..6` 就 return——
+         * 而 Room 默认 WAL 模式下只读打开 WAL 库在部分机型/权限下会抛
+         * SQLiteCantOpenDatabaseException，异常被吞成 -1 后正好落进这个 return，
+         * 于是变成"探测失败 → 静默跳过备份 → 紧接着 fallback 破坏性重建 →
+         * 数据既丢了又没有备份"（v161 想防的恰恰是这一场景，属于回归隐患）。
+         * 现在：① 探测改成两级（只读打开 → 直接解析文件头）；
+         *      ② 只有明确读出 7 以上版本才跳过，读不出/读异常一律照样备份，绝不静默跳过。
          * 任何一步失败都只记日志，绝不阻断启动；fallback 重建兜底保持不变。
          */
         private fun backupLegacyDatabaseIfNeeded(context: Context) {
             try {
                 val dbFile = context.getDatabasePath("wakeup")
-                if (!dbFile.exists()) return
-                val oldVersion = readLegacyDbVersion(dbFile.absolutePath)
-                if (oldVersion !in 1..6) return
+                if (!dbFile.exists() || dbFile.length() <= 0L) return
+                val oldVersion = readLegacyDbVersion(dbFile)
+                val isLegacy = oldVersion in 1..6
+                // 明确读出版本号 ≥7（含当前 v8）才说明不是老库；-1 与任何异常值都进入备份分支
+                if (oldVersion in 7..1000) return
                 val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "db_backup")
                 if (!dir.exists()) dir.mkdirs()
                 val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA).format(Date())
-                val saved = File(dir, "wakeup_v${oldVersion}_${stamp}.db")
+                // 老版本用「版本号 + 时间戳」留档；版本未知时用固定文件名且不覆盖，
+                // 避免每次冷启动都堆一个文件、也避免后一次的空库覆盖掉前一次的完整老库
+                val saved = if (isLegacy) File(dir, "wakeup_v${oldVersion}_${stamp}.db")
+                        else File(dir, "wakeup_unknown.db")
+                if (!isLegacy && saved.exists()) {
+                    Log.w("AppDatabase", "已存在未知版本备份，跳过重复备份")
+                    return
+                }
                 dbFile.copyTo(saved, overwrite = true)
                 // wal/shm 一并备份，缺哪个就跳过哪个
                 for (suffix in listOf("-wal", "-shm")) {
@@ -76,7 +93,8 @@ abstract class AppDatabase : RoomDatabase() {
                         }
                     }
                 }
-                // 记录待提示标记：主界面首次启动据此弹一次性 AlertDialog
+                // 记录待提示标记：主界面首次启动据此弹一次性 AlertDialog。
+                // 版本未知时同样置位：宁可多弹一次信息，也不能让"数据丢了且用户毫不知情"重演
                 context.getPrefer().edit {
                     putBoolean(Const.KEY_DB_OLD_VERSION_DETECTED, true)
                     putString(Const.KEY_DB_BACKUP_PATH, saved.absolutePath)
@@ -88,20 +106,52 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /** 只读打开老库读 PRAGMA user_version；任何异常返回 -1（视为无需备份）。调用方负责场景，这里保证 close */
-        private fun readLegacyDbVersion(path: String): Int {
-            var db: SQLiteDatabase? = null
-            return try {
-                db = SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
-                db.version
+        /**
+         * W7-05：读老库 PRAGMA user_version，两级探测。
+         * ① 首选只读打开（会连带读 -wal，语义最准）；
+         * ② 打不开时（WAL 只读 / 权限 / 锁 → SQLiteCantOpenDatabaseException）退回解析文件头，
+         *    完全绕开数据库层，天然免疫 WAL 与锁的问题。
+         * 两级都失败返回 -1，调用方把 -1 当"版本未知"照样备份（见上），不许静默跳过。
+         */
+        private fun readLegacyDbVersion(file: File): Int {
+            try {
+                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                        .use { return it.version }
             } catch (e: Exception) {
-                -1
-            } finally {
-                try {
-                    db?.close()
-                } catch (e: Exception) {
-                    // ignore
+                Log.w("AppDatabase", "只读打开老库探测版本失败，改用文件头解析", e)
+            }
+            return readVersionFromHeader(file)
+        }
+
+        /**
+         * 直接解析 SQLite 文件头取 user_version，不打开数据库：
+         * 偏移 0~15 = "SQLite format 3\0"（头部魔数，用来确认这确实是个 SQLite 库）；
+         * 偏移 60~63 = user_version，**大端**存储。
+         * 大端这点已用真实库实测确认：user_version=6 的文件头是 00 00 00 06，按小端解析会得到
+         * 100663296，直接落进"非老版本"分支 → 又变回静默跳过，所以字节序不能想当然。
+         * 另注：WAL 模式下若 -wal 尚未 checkpoint，文件头里的 user_version 可能是陈旧值（实测读到 0），
+         * 因此这条路只作为通道② 的兜底，不作为唯一依据。
+         */
+        private fun readVersionFromHeader(file: File): Int {
+            return try {
+                if (file.length() < 64L) return -1
+                val head = ByteArray(64)
+                file.inputStream().use { ins ->
+                    var read = 0
+                    while (read < 64) {
+                        val n = ins.read(head, read, 64 - read)
+                        if (n <= 0) return -1
+                        read += n
+                    }
                 }
+                if (String(head, 0, 15, Charsets.US_ASCII) != "SQLite format 3") return -1
+                ((head[60].toInt() and 0xff) shl 24) or
+                        ((head[61].toInt() and 0xff) shl 16) or
+                        ((head[62].toInt() and 0xff) shl 8) or
+                        (head[63].toInt() and 0xff)
+            } catch (e: Exception) {
+                Log.w("AppDatabase", "解析 SQLite 文件头失败", e)
+                -1
             }
         }
 

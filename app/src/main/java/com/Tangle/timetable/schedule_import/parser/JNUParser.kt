@@ -14,43 +14,41 @@ class JNUParser(source: String) : Parser(source) {
         val table = frame.getElementsByClass("a8")
         val trs = table[0].getElementsByTag("tr").subList(3, 10)
 
-        var courseName: String
-        var room: String
-        var step: Int
-        val courseNames = mutableMapOf<String, Int>()
+        // W7-15：先按课名收集这一行里出现过的**列索引（列索引即节次）**，再按"连续段"切成若干条
+        // Course。原实现用"课名出现次数 - 1"当连堂节数，隐含"这些出现位置必然连续"：
+        // 同一门课若出现在第 1 节和第 6 节，会被合并成"1-2 节" —— 第 6 节那节课直接丢失，
+        // 且学生看到的上课时间是错的。
+        // 同时按「行」分别收集，顺带修掉"同一门课出现在不同星期时被并成一条"的同类错位。
         for (i in trs.indices) {
             val tds = trs[i].getElementsByTag("td")
             if (tds.isEmpty()) continue
 
+            val posOf = linkedMapOf<String, MutableList<Int>>()
+            val roomOf = mutableMapOf<String, String>()
             for (j in tds.indices) {
                 val str = tds[j].getElementsByTag("div").text()
                 if (str.isNullOrEmpty() || j == 0) continue
-
-                room = str.substringBefore(' ')
-                courseName = str.substringAfter('：').substringBeforeLast('(')
-
-                if (courseNames.contains(courseName)) {
-                    step = courseNames[courseName]!!
-                    courseNames[courseName] = step + 1
-                } else {
-                    courseNames[courseName] = 1
-                    courseList.add(
-                        Course(
-                            name = courseName, day = i + 1, room = room, teacher = "", startNode = j,
-                            endNode = j + 1, startWeek = 1, endWeek = 18, type = 0
+                val name = str.substringAfter('：').substringBeforeLast('(')
+                val nodes = posOf.getOrPut(name) { mutableListOf() }
+                if (nodes.isEmpty()) roomOf[name] = str.substringBefore(' ')
+                nodes.add(j)
+            }
+            for ((name, nodes) in posOf) {
+                var segStart = 0
+                for (k in nodes.indices) {
+                    val last = k == nodes.size - 1
+                    if (last || nodes[k + 1] != nodes[k] + 1) {
+                        courseList.add(
+                            Course(
+                                name = name, day = i + 1, room = roomOf[name] ?: "", teacher = "",
+                                startNode = nodes[segStart], endNode = nodes[k],
+                                startWeek = 1, endWeek = 18, type = 0
+                            )
                         )
-                    )
+                        segStart = k + 1
+                    }
                 }
             }
-        }
-        var c: Course
-        for (i in courseList.indices) {
-            c = courseList[i]
-            step = courseNames[c.name]!! - 1
-            courseList[i] = Course(
-                c.name, c.day, c.room, "", c.startNode,
-                c.startNode + step, 1, 18, 0
-            )
         }
         return courseList
     }

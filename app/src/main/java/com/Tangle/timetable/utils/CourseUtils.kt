@@ -114,28 +114,41 @@ object CourseUtils {
     @Throws(ParseException::class)
     fun daysBetween(date: String, nextDay: Boolean = false, sundayFirst: Boolean): Int {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+        val firstDayOfWeek = if (sundayFirst) Calendar.SUNDAY else Calendar.MONDAY
+
+        /** 把 Calendar 归一到「它所在那一周的周首日」（口径由 firstDayOfWeek 决定） */
+        fun normalizeToWeekStart(cal: Calendar) {
+            cal.firstDayOfWeek = firstDayOfWeek
+            cal.set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+        }
+
+        /** 抹掉时分秒，只留零点 */
+        fun normalizeToMidnight(cal: Calendar) {
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+        }
+
         val cal = Calendar.getInstance()
         if (nextDay) {
             cal.add(Calendar.DATE, 1)
         }
-        if (sundayFirst) {
-            cal.firstDayOfWeek = Calendar.SUNDAY
-            cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-        } else {
-            cal.firstDayOfWeek = Calendar.MONDAY
-            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        }
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
+        // 第一个零点：当前时间所在周的周首日
+        normalizeToWeekStart(cal)
+        normalizeToMidnight(cal)
         val time2 = cal.timeInMillis
+
+        // W7-02：第二个零点必须同样归一到「开学日期所在周的周首日」，两侧口径才对得上。
+        // 旧实现把 startDate 原样当零点，一旦用户把开学日期设成周中某天（比如周三），
+        // 第 1 周就横跨两个自然周，于是 time2 - time1 不再是 7 的整数倍：
+        // 从第 2 周起整学期周次全部偏小一周，单双周、考试周、放假周连带全错。
+        // 归一化之后两侧都是周首日的零点，差值必为 7 的整数倍（中国无夏令时，无 DST 干扰）。
         cal.time = sdf.parse(date)
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
+        normalizeToWeekStart(cal)
+        normalizeToMidnight(cal)
         val time1 = cal.timeInMillis
+
         var betweenDays: Int = ((time2 - time1) / (1000 * 3600 * 24)).toInt()
         if (betweenDays < 0) {
             betweenDays--

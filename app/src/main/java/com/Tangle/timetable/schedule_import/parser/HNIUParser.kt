@@ -9,7 +9,9 @@ class HNIUParser(source: String) : Parser(source) {
     override fun generateCourseList(): List<Course> {
         val courseList = arrayListOf<Course>()
         val doc = Jsoup.parse(source, "utf-8")
-        val tBody = doc.getElementsByAttributeValue("bordercolordark", "#FFFFFF")[0].getElementsByTag("tbody")[0]
+        // W7-10①：属性/结构一变，`[0]` 直接越界；改为 getOrNull + 提前返回。
+        val tBody = doc.getElementsByAttributeValue("bordercolordark", "#FFFFFF").firstOrNull()
+                ?.getElementsByTag("tbody")?.firstOrNull() ?: return courseList
         val trs = tBody.getElementsByTag("tr")
 
         for (tr in trs) {
@@ -24,13 +26,15 @@ class HNIUParser(source: String) : Parser(source) {
                     val courseSource = td.html().split("<br>")
                     if (courseSource.isEmpty()) continue
                     if (courseSource.size <= 4) {
-                        if (courseSource[0].isBlank()) continue
+                        // W7-10②：单元格只有一行文本时 size == 1，convertHNIU 内 courseSource[1] 越界。
+                        if (courseSource.size < 2 || courseSource[0].isBlank()) continue
                         convertHNIU(day, courseSource, courseList)
                     } else {
                         var startIndex = 1
                         courseSource.forEachIndexed { index, s ->
                             if (s.contains('[') && s.contains(']') && s.contains('周') && s.contains('节')) {
-                                if (index - 1 != 0) {
+                                // W7-10③：index == 0 时 subList(0, -1) 会抛异常，故加 index > 0。
+                                if (index > 0 && index - 1 != 0) {
                                     convertHNIU(day, courseSource.subList(startIndex - 1, index - 1), courseList)
                                     startIndex = index
                                 }
@@ -61,8 +65,13 @@ class HNIUParser(source: String) : Parser(source) {
             tmp[tmp.size - 1]
         }
         val timeStr = courseSource[1].substringAfter('[').substringBeforeLast('节')
-        val weekList = timeStr.split("周][")[0].split(", ", ",")
-        val nodeStr = timeStr.split("周][")[1]
+        // W7-10④：无"周]["分隔时（如页面写成"[1-16周] [1-2节]"）原 `[1]` 直接越界，
+        // 改为 getOrNull，解析不出就跳过这门课。
+        val timeParts = timeStr.split("周][")
+        val weekPart = timeParts.getOrNull(0) ?: return
+        val nodePart = timeParts.getOrNull(1) ?: return
+        val weekList = weekPart.split(", ", ",")
+        val nodeStr = nodePart
 
         val nodeList = nodeStr.split('-')
         if (nodeList.size == 1) {

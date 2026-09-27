@@ -77,11 +77,11 @@ class ScheduleFragment : BaseFragment() {
         ) { onCourseMoved(it) }
 
         weekDate = CourseUtils.getDateStringFromWeek(CourseUtils.countWeek(viewModel.table.startDate, viewModel.table.sundayFirst), week, viewModel.table.sundayFirst)
-        ((view as ConstraintLayout).getViewById(R.id.anko_tv_title0) as AppCompatTextView).text = weekDate[0] + "\n月"
+        ((view as ConstraintLayout).findViewById(R.id.anko_tv_title_col0) as AppCompatTextView).text = weekDate[0] + "\n月"
         var textView: AppCompatTextView?
         for (i in 1..7) {
             if (ui.dayMap[i] == -1) continue
-            textView = view.getViewById(R.id.anko_tv_title0 + ui.dayMap[i]) as AppCompatTextView
+            textView = view.findViewById(R.id.anko_tv_title_col0 + ui.dayMap[i]) as AppCompatTextView
             if (i == 7 && !viewModel.table.showSat && !viewModel.table.sundayFirst) {
                 textView.text = viewModel.daysArray[i] + "\n${weekDate[7]}"
             } else if (!viewModel.table.showSun && viewModel.table.sundayFirst && i != 7) {
@@ -93,7 +93,13 @@ class ScheduleFragment : BaseFragment() {
         // 节数可能被用户设置得大于时间段数量，直接按 nodes 索引会越界崩溃
         if (viewModel.timeList.isNotEmpty() && ui.showTimeDetail) {
             for (i in 0 until minOf(viewModel.table.nodes, viewModel.timeList.size)) {
-                (ui.content.getViewById(R.id.anko_tv_node1 + i) as FrameLayout).apply {
+                // W9-02：本文件原先用的是 `ConstraintLayout.getViewById(id)` —— 它只查
+                // `mChildrenByIds` 这个**直接子视图**表，语义比 `findViewById` 窄得多：
+                // 一旦某个视图的层级被调整（例如以后包一层容器、或换成别的父布局），
+                // 同一个 id 在 getViewById 下会返回 null，而 findViewById 仍能找到。
+                // 同一个工程里 CourseDragController 用的是 `findViewById`，两套并存必然踩坑。
+                // 统一到语义更宽、也更通用的 `findViewById`（同一层级内 id 唯一，不存在找错的风险）。
+                (ui.content.findViewById(ScheduleUI.nodeId(i + 1)) as FrameLayout).apply {
                     findViewById<AppCompatTextView>(R.id.tv_start).text = viewModel.timeList[i].startTime
                     findViewById<AppCompatTextView>(R.id.tv_end).text = viewModel.timeList[i].endTime
                 }
@@ -109,7 +115,7 @@ class ScheduleFragment : BaseFragment() {
         showCourseNumber.observe(viewLifecycleOwner, Observer {
             if (it == 0) {
                 ui.content.visibility = View.GONE
-                if (ui.root.getViewById(R.id.anko_empty_view) != null) {
+                if (ui.root.findViewById<View>(R.id.anko_empty_view) != null) {
                     return@Observer
                 }
                 val img = AppCompatImageView(context!!).apply {
@@ -133,14 +139,14 @@ class ScheduleFragment : BaseFragment() {
                         ConstraintLayout.LayoutParams.WRAP_CONTENT).apply {
                     startToStart = ConstraintSet.PARENT_ID
                     endToEnd = ConstraintSet.PARENT_ID
-                    topToBottom = R.id.anko_tv_title0
+                    topToBottom = R.id.anko_tv_title_col0
                     bottomToBottom = ConstraintSet.PARENT_ID
                     marginStart = context!!.dip(32)
                     marginEnd = context!!.dip(32)
                 })
             } else {
                 ui.content.visibility = View.VISIBLE
-                ui.root.getViewById(R.id.anko_empty_view)?.let { emptyView ->
+                ui.root.findViewById<View>(R.id.anko_empty_view)?.let { emptyView ->
                     ui.root.removeView(emptyView)
                 }
             }
@@ -174,7 +180,12 @@ class ScheduleFragment : BaseFragment() {
     }
 
     private fun initWeekPanel(data: List<CourseBean>?, day: Int, table: TableBean) {
-        val ll = ui.content.getViewById(R.id.anko_ll_week_panel_0 + ui.dayMap[day] - 1) as FrameLayout?
+        // W9-03：dayMap[day] 为 0 / -1 时（该星期未开启），
+        // `anko_ll_week_panel_0 + dayMap[day] - 1` 会算出一个**不存在甚至非法的 id**，
+        // 再 `as FrameLayout?` 就是对着一个凭空造出来的引用做操作。
+        // 对照 CourseDragController:168 早就有 `if (idx <= 0) continue`，这里补上同样的前置守卫。
+        if (ui.dayMap[day] <= 0) return
+        val ll = ui.content.findViewById(R.id.anko_ll_week_panel_0 + ui.dayMap[day] - 1) as FrameLayout?
                 ?: return
         ll.removeAllViews()
         // 从这里起 data 保证非空（也让下面的长按回调能直接捕获）

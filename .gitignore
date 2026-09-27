@@ -23,7 +23,18 @@ app/release/
 # 签名密钥不进公开仓库（含私钥，且这是保证已装应用能覆盖升级的关键文件）
 /keystore/
 
+# W4-01：签名口令与密钥路径（本地文件，绝不能进仓库）
+# 旧版本把口令明文写在 app/build.gradle 里并已随仓库公开，本文件是那次的整改结果
+keystore.properties
+
 # 本地构建日志
 build_log*.txt
 build_v*.log
 mig_*.log
+
+# 排查产物与签名验证输出：只留本地，不进公开仓库
+build_fix*.log
+build_*.log
+sign_*.txt
+apk_find_result.txt
+AI_REVIEW_PROMPT.md

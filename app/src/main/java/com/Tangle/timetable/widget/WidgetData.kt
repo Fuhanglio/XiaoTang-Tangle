@@ -76,7 +76,15 @@ object WidgetData {
                 val start = times[startNode - 1].startTime
                 val end = times[endNode - 1].endTime
                 val startMillis = timeToMillis(start, dayOffset) ?: run { Log.w(TAG, "无法解析时间: $start"); return@mapNotNull null }
-                val endMillis = timeToMillis(end, dayOffset) ?: run { Log.w(TAG, "无法解析时间: $end"); return@mapNotNull null }
+                var endMillis = timeToMillis(end, dayOffset) ?: run { Log.w(TAG, "无法解析时间: $end"); return@mapNotNull null }
+                // W7-03：跨 0 点的课时（如 23:30 → 00:15）里，endTime 的"当日时刻"比 startTime 小，
+                // 于是 endMillis < startMillis —— `now >= endMillis` 恒真（永远判"已结束"）、
+                // `now in startMillis..endMillis` 是空区间（永不判"进行中"），
+                // 连锁到 getSmartDayPlan：20 点后本该留在今天，却因"今天没课"把卡片跳到了明天。
+                // 这里给 end 补一天。刻意用严格 `<` 而不是 `<=`：时间表里 12~30 号节点是
+                // 00:00/00:00 占位（用户只用了前 11 节时它们就是 0 长度），用 `<=` 会把这类
+                // "还没配时间的课"整天判成进行中，属于新的误判。
+                if (endMillis < startMillis) endMillis += 24L * 60 * 60 * 1000
                 val status = when {
                     now >= endMillis -> STATUS_FINISHED
                     now in startMillis..endMillis -> STATUS_ONGOING

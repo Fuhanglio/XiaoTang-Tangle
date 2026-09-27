@@ -1,5 +1,17 @@
 package com.Tangle.timetable.schedule_import.login_school.hust
 
+/*
+ * W5-10：本文件是**华科教务前端加密算法（DES + 自定义置换）的搬运实现**。
+ *
+ * 里面出现的 "1" / "2" / "3" 等是**学校前端写死的协议常量**（对应其 JS 里的 desKey1/2/3），
+ * **不是本工程的安全密钥**，也不承担任何本地数据保护职责 —— 它只是"让服务端认得出这次请求"。
+ *
+ * ⚠ 刻意保留、不要"顺手加固"：这属于服务端协议，客户端改了华科登录会**直接失效**，
+ *   且没有办法在客户端单独修好。
+ * ⇒ 真正能保证会话安全的只有 HTTPS（见 W5-03 的明文流量收敛）。
+ *   本类不应被当作本 App 的安全边界来评估。
+ */
+
 import java.math.BigInteger
 import java.util.ArrayList
 import kotlin.experimental.xor

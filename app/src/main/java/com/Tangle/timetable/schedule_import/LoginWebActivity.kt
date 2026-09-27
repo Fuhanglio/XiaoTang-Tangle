@@ -154,9 +154,19 @@ class LoginWebActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
-        val suda = supportFragmentManager.findFragmentByTag("苏州大学")
-        if (suda != null && fab_login.isExpanded) {
-            fab_login.isExpanded = false
+        // W1-02：本 Activity **没有自己的布局**（全文不 setContentView，视图全部来自被 add 到
+        // android.R.id.content 的 Fragment）。原来这里用的是 `fab_login` 的 **LoginWebActivity 版**
+        // 合成属性 —— 它是生成脚本按"同包同前缀"批量复制出来的，扫的是 Activity 的视图树，
+        // 只在"对应 Fragment 恰好已附着"时碰巧命中；换成别的 Fragment 就会抛异常。
+        // 已改为走 **LoginWebFragment 自身**的访问器（作用域正确）。
+        // （同批已把 `SynthViewsCompat.kt` 里那 23 条 LoginWebActivity.* 属性整段删除）
+        //
+        // W1-11：补 `isAdded && view != null` 判活 —— 合成属性的 getter 内部是
+        // `(view ?: throw IllegalStateException).findViewById(..)!!`，属**抛异常**语义，
+        // Kotlin 的 `?.` 挡不住它（getter 在 null 检查之前就抛了）。
+        val suda = supportFragmentManager.findFragmentByTag("苏州大学") as? LoginWebFragment
+        if (suda != null && suda.isAdded && suda.view != null && suda.fab_login.isExpanded) {
+            suda.fab_login.isExpanded = false
         } else {
             super.onBackPressed()
         }

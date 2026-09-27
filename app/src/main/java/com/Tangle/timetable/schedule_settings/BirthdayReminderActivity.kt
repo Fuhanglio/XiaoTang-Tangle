@@ -31,6 +31,12 @@ import splitties.resources.color
  */
 class BirthdayReminderActivity : BaseBlurTitleActivity() {
 
+    companion object {
+        private const val MAX_DAYS_IN_MONTH = 31   // onCreate 会带着“保存的日”进 bindDays，可能是 31；
+                                                   // 预置值必须 >= 31，否则 ① 的 setValue 会被钳掉，
+                                                   // 引出 index=-1 那条崩溃
+    }
+
     override val layoutId: Int
         get() = R.layout.activity_birthday_reminder
 
@@ -62,9 +68,31 @@ class BirthdayReminderActivity : BaseBlurTitleActivity() {
     /** 待重建的月份；-1 表示没有待处理的重置 */
     private var pendingMonth = -1
 
-    private val bindRunnable = Runnable {
+    // ============ R3-02：滚轮未停稳绝不触碰「日」轮的 range/displayedValues ============
+    //
+    // v156 的 120ms 去抖只能合并高频回调，压不住惯性滚动超过 120ms 的长甩：
+    // bindRunnable 落在 fling 进行中 → setMaxValue 撞上 NumberPicker 内部数组的
+    // 边界窗口 → ArrayIndexOutOfBoundsException（此前被保险丝接住，但每次都抛，
+    // 与 9/16 v155 的崩溃同源 —— 保险丝只降概率，没治根）。
+    // 治根：OnScrollListener 跟踪两个滚轮的滚动状态，只要任何一个还在滚
+    // （TOUCH_SCROLL / FLING），「日」轮重建就整体推迟；停稳（IDLE）由监听器
+    // 主动补执行，bindRunnable 自身再挂一个自重试兜底，防个别 ROM 漏发 IDLE。
+    private var pickersScrolling = false
+
+    // 逻辑放进成员函数而非 lambda：lambda 内自引用（自重试兜底）在
+    // 本工程的 Kotlin 版本里会报 "must be initialized"，函数内引用无此限制
+    private val bindRunnable: Runnable = Runnable { runBind() }
+
+    private fun runBind() {
+        // R3-02：滚轮未停稳 → 本轮不重建、不消费 pendingMonth；
+        // 停稳由 pickerScrollListener 补触发，这里自重试兜底防漏发 IDLE
+        if (pickersScrolling) {
+            uiHandler.removeCallbacks(bindRunnable)
+            uiHandler.postDelayed(bindRunnable, 200)
+            return
+        }
         val m = pendingMonth
-        if (m == -1) return@Runnable
+        if (m == -1) return
         pendingMonth = -1
         try {
             bindDays(m, 1)
@@ -75,6 +103,21 @@ class BirthdayReminderActivity : BaseBlurTitleActivity() {
             CrashLogger.logCaught("birthday_bind", t)
         }
     }
+
+    private val pickerScrollListener = NumberPicker.OnScrollListener { _, scrollState ->
+        val scrolling = scrollState != NumberPicker.OnScrollListener.SCROLL_STATE_IDLE
+        if (scrolling) {
+            pickersScrolling = true
+        } else if (pickersScrolling) {
+            pickersScrolling = false
+            // 刚停稳：滚动期间积压的月份联动现在补执行
+            if (pendingMonth != -1) {
+                uiHandler.removeCallbacks(bindRunnable)
+                uiHandler.postDelayed(bindRunnable, 80)
+            }
+        }
+    }
+    // ================================================================================
 
     /** 月份变化 → 去抖重建「日」滚轮（连发合并，只认最后一个值） */
     private fun scheduleBindDays(month: Int) {
@@ -123,21 +166,35 @@ class BirthdayReminderActivity : BaseBlurTitleActivity() {
         etText = findViewById(R.id.et_text)
 
         // 月：1 ~ 12
+        // ⚠️ 月轮的顺序与 bindDays 保持一致（displayedValues 先行、maxValue 次之、
+        // value 最后），别改回去 —— 顺序原理见 bindDays 内注释。
+        // 实测：本 ROM 下 fresh NumberPicker 未预置 min/max 时直接 setValue(10)，value 会被钳到 0
+        //（低于 minValue=1 的非法态），随后 setDisplayedValues 内部以 -1 打索引 → length=12; index=-1 FATAL。
+        // 所以 value 必须放在最后一位，且 npDay 要先预置 range。
         npMonth.minValue = 1
-        npMonth.maxValue = 12
         npMonth.displayedValues = (1..12).map { "${it}月" }.toTypedArray()
+        npMonth.maxValue = 12
         npMonth.value = BirthdayUtils.month(this)
         // v156：生日月日不该环形滚动（1月上面不该出现12月），关 wrap 同时收紧
         // wrap 模式下选择索引跨界的路径
         npMonth.wrapSelectorWheel = false
 
         // 日：随月份联动，2 月按今年闰年情况给 28 或 29
+        // ⚠️ 首次 bindDays 前必须先给 npDay 预置 min/max（实测理由见上方月轮注释）：
+        // 不预置则 bindDays ① 的 setValue 段会落到“value 被钳到 0 的非法态”，② setDisplayedValues
+        // 内部以 -1 打索引 → length=29; index=-1 FATAL。fresh picker 此时还没有 displayedValues，
+        // setMaxValue 不会走崩溃路径，安全。预置上限取 MAX_DAYS_IN_MONTH（31），见常量注释。
+        npDay.minValue = 1
+        npDay.maxValue = MAX_DAYS_IN_MONTH
         bindDays(npMonth.value, BirthdayUtils.day(this))
         npDay.wrapSelectorWheel = false
         // v156：月份回调改为去抖重建（见类头部说明）——fling 连发时只认最终值
         npMonth.setOnValueChangedListener { _, _, newValue ->
             scheduleBindDays(newValue)
         }
+        // R3-02：跟踪两轮滚动状态，惯性滚动期间整体跳过「日」轮重建（见类头说明）
+        npMonth.setOnScrollListener(pickerScrollListener)
+        npDay.setOnScrollListener(pickerScrollListener)
 
         etText.setText(BirthdayUtils.text(this))
         etText.setSelection(etText.text?.length ?: 0)
@@ -181,10 +238,27 @@ class BirthdayReminderActivity : BaseBlurTitleActivity() {
     /** 按当前月份重建「日」滚轮，尽量保留原来的选择 */
     private fun bindDays(month: Int, preferDay: Int) {
         val maxDay = BirthdayUtils.maxDay(month)
+        val target = preferDay.coerceIn(1, maxDay)
         npDay.minValue = 1
-        npDay.maxValue = maxDay
-        npDay.displayedValues = (1..maxDay).map { "${it}日" }.toTypedArray()
-        npDay.value = preferDay.coerceIn(1, maxDay)
+        // ⚠️ 这三行的顺序不能改，改了就是 length=29; index=29 那个崩溃。
+        //
+        // 框架 NumberPicker$AccessibilityNodeProviderImpl.getVirtualIncrementButtonText 取「加号」
+        // 按钮文本的方式是 displayedValues[value - minValue + 1]，而它**只在 value < maxValue 时
+        // 才真的去取索引** —— 范围判断看的是 maxValue，索引却打在 displayedValues 上。
+        // 两个字段分开赋值，中间那一瞬就互相矛盾：
+        //   2 月 29 天、日轮 value = 29 时切到 3 月：setMaxValue(31) 先执行（29 < 31 成立，加号路径
+        //   被放行），而 displayedValues 还是 2 月那个 29 元素的旧数组
+        //   → 索引 29 打在长度 29 的数组上 → ArrayIndexOutOfBoundsException: length=29; index=29
+        //   → 主线程崩，且发生在框架 a11y 回调里，try/catch 与 CrashLogger 都接不住。
+        //   （旧顺序下 setMaxValue(31) 自身在 ensureCachedScrollSelectorValue 里就会先抛一次，
+        //     被 runBind 的保险丝接住后控件状态已永久损坏，随后任意 a11y 预取仍必崩 —— 实测如此。）
+        //
+        // 唯一能同时挡住「范围变大」和「范围变小」两个方向的顺序：
+        //   ① value 先夹进新范围  ② displayedValues 换成长度正确的数组  ③ maxValue 最后改
+        // 好处：三步中任意一步之后被打断（异常/调度），状态都是自洽的；旧顺序打断在第①步后永久损坏。
+        npDay.value = target                                                   // ①
+        npDay.displayedValues = (1..maxDay).map { "${it}日" }.toTypedArray()    // ②
+        npDay.maxValue = maxDay                                                // ③
         npDay.setOnValueChangedListener { _, _, _ -> updatePreview() }
     }
 

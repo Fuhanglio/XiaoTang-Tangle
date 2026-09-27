@@ -16,6 +16,7 @@ import androidx.appcompat.widget.AppCompatTextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet.PARENT_ID
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.setMargins
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -213,7 +214,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
 
     val navViewStart = NavigationView(ctx).apply {
         id = R.id.anko_nv
-        setBackgroundColor(ctx.getColor(R.color.page_bg))
+        setBackgroundColor(ContextCompat.getColor(ctx, R.color.page_bg))
         fitsSystemWindows = false
         inflateHeaderView(R.layout.nav_header)
         inflateMenu(R.menu.main_navigation_menu)
@@ -260,7 +261,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
         setPadding(dip(12), 0, dip(12), 0)
         minimumHeight = dip(32)
         cornerRadius = dip(10)
-        setTextColor(ctx.getColor(R.color.text_primary))
+        setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
         backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFF2F2F7.toInt())
         elevation = 0f
         stateListAnimator = StateListAnimator()
@@ -293,12 +294,19 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
         weekToggleGroup.removeAllViews()
         for (i in 1..maxWeek) {
             val btn = createOutlineButton().apply {
-                id = i
+                // W9-04：原来这里写的是 `id = i` —— 把业务数据（第几周）**塞进了 View 的 id**。
+                // id 是控件身份标识，属视图系统的保留空间，拿它当业务数据有三个问题：
+                //   ① `id` 一旦被别处（含系统/A11y/测试框架）改写，业务值就悄悄变了；
+                //   ② 与 `R.id.*` 两套编号共存，读代码时无法判断某个 id 是不是"真的资源 id"；
+                //   ③ `findViewById(1)` 这类调用会在语义上"找得到"这些按钮，属隐式耦合。
+                // 现在改用 `setTag(i)` 存值 + **闭包直接捕获 i**，id 交还给 R.id.*。
+                setTag(i)
                 text = i.toString()
                 isChecked = false
                 setOnClickListener {
                     weekButtons.forEach { b -> b.isChecked = b === this }
-                    onWeekSelected?.invoke(id)
+                    // 闭包捕获本次循环的 i（Kotlin 的 for 变量每轮都是新的），不再从 id 反推
+                    onWeekSelected?.invoke(i)
                 }
             }
             // 宽度 wrap_content + minWidth 40dp，两位数也单行显示
@@ -312,7 +320,8 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
 
     /** 选中指定周（仅视觉态） */
     fun selectWeekButton(week: Int) {
-        weekButtons.forEach { it.isChecked = it.id == week }
+        // W9-04：配套改动 —— 业务值现在在 tag 里，不再从 id 反推
+        weekButtons.forEach { it.isChecked = (it.tag as? Int) == week }
     }
 
     val weekScrollView = HorizontalScrollView(ctx).apply {
@@ -367,7 +376,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
             id = R.id.bottom_sheet_title_week
             text = "周数"
             textSize = 13f
-            setTextColor(ctx.getColor(R.color.text_secondary))
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
         }, ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT).apply {
             startToStart = PARENT_ID
             topToBottom = R.id.bottom_sheet_drag_handle
@@ -388,7 +397,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
             id = R.id.bottom_sheet_title_schedule
             text = "多课表"
             textSize = 13f
-            setTextColor(ctx.getColor(R.color.text_secondary))
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
         }, ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT).apply {
             startToStart = PARENT_ID
             topToBottom = R.id.bottom_sheet_sv_week
@@ -414,7 +423,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
             id = R.id.bottom_sheet_title_shortcut
             text = "捷径"
             textSize = 13f
-            setTextColor(ctx.getColor(R.color.text_secondary))
+            setTextColor(ContextCompat.getColor(ctx, R.color.text_secondary))
         }, ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT).apply {
             startToStart = PARENT_ID
             topToBottom = R.id.bottom_sheet_rv_table
@@ -493,7 +502,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
     }
 
     fun createTextButton() = MaterialButton(ctx).apply {
-        setTextColor(ctx.getColor(R.color.colorPrimary))
+        setTextColor(ContextCompat.getColor(ctx, R.color.colorPrimary))
         val space = dip(8)
         setPadding(space, 0, space, 0)
         backgroundTintList = android.content.res.ColorStateList.valueOf(0x00000000)
@@ -521,7 +530,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
         cornerRadius = dip(999)
         val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
         backgroundTintList = android.content.res.ColorStateList(states,
-                intArrayOf(ctx.getColor(R.color.colorPrimary), 0xFFF2F2F7.toInt()))
+                intArrayOf(ContextCompat.getColor(ctx, R.color.colorPrimary), 0xFFF2F2F7.toInt()))
         setTextColor(android.content.res.ColorStateList(states,
                 intArrayOf(0xFFFFFFFF.toInt(), 0xFF3C3C43.toInt())))
         setPadding(ctx.dip(10), 0, ctx.dip(10), 0)
@@ -544,11 +553,11 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
                 setColor(0xFFF2F2F7.toInt())
             }
             val rippleColor = android.content.res.ColorStateList.valueOf(
-                    (ctx.getColor(R.color.colorPrimary) and 0x00FFFFFF) or 0x1E000000)
+                    (ContextCompat.getColor(ctx, R.color.colorPrimary) and 0x00FFFFFF) or 0x1E000000)
             background = android.graphics.drawable.RippleDrawable(rippleColor, content, null)
             val icon = androidx.appcompat.widget.AppCompatImageView(ctx).apply {
                 setImageResource(iconRes)
-                setColorFilter(ctx.getColor(R.color.colorPrimary))
+                setColorFilter(ContextCompat.getColor(ctx, R.color.colorPrimary))
                 scaleType = ImageView.ScaleType.CENTER
             }
             addView(icon, androidx.appcompat.widget.LinearLayoutCompat.LayoutParams(dip(18), dip(18)).apply {
@@ -557,7 +566,7 @@ class ScheduleActivityUI(override val ctx: Context) : Ui {
             addView(androidx.appcompat.widget.AppCompatTextView(ctx).apply {
                 text = label
                 textSize = 12f
-                setTextColor(ctx.getColor(R.color.text_primary))
+                setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
             }, androidx.appcompat.widget.LinearLayoutCompat.LayoutParams(
                     androidx.appcompat.widget.LinearLayoutCompat.LayoutParams.WRAP_CONTENT,
                     androidx.appcompat.widget.LinearLayoutCompat.LayoutParams.WRAP_CONTENT))

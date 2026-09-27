@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -26,6 +27,34 @@ import splitties.dimensions.dp
 
 class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidget: Boolean = false) : Ui {
 
+    companion object {
+        /** ids.xml 里 node 系列的**声明顺序**（1-based：NODE_IDS[1] 是第 1 行容器）。
+         *  顺序 = ids.xml 声明序，与名字里的数字无关。改 ids.xml 时同步改这张表。 */
+        private val NODE_IDS = intArrayOf(
+            0,                                  // 索引 0 占位不用
+            R.id.anko_tv_node1, R.id.anko_tv_node2, R.id.anko_tv_node3,
+            R.id.anko_tv_node4, R.id.anko_tv_node5, R.id.anko_tv_node6,
+            R.id.anko_tv_node7, R.id.anko_tv_node8, R.id.anko_tv_node9,
+            R.id.anko_tv_node91, R.id.anko_tv_node92, R.id.anko_tv_node93,
+            R.id.anko_tv_node94, R.id.anko_tv_node95, R.id.anko_tv_node96,
+            R.id.anko_tv_node97, R.id.anko_tv_node98, R.id.anko_tv_node99,
+            R.id.anko_tv_node991, R.id.anko_tv_node992, R.id.anko_tv_node993,
+            R.id.anko_tv_node994, R.id.anko_tv_node995, R.id.anko_tv_node996,
+            R.id.anko_tv_node997, R.id.anko_tv_node998, R.id.anko_tv_node999,
+            R.id.anko_tv_node9991, R.id.anko_tv_node9992, R.id.anko_tv_node9993
+        )
+
+        /** 别写死 30：可用行号上限由表长推出 */
+        private val MAX_NODES: Int get() = NODE_IDS.size - 1
+
+        /** row 为 1-based 行号；越界夹紧并报错，绝不静默别名到别的控件 */
+        internal fun nodeId(row: Int): Int {
+            if (row in 1..MAX_NODES) return NODE_IDS[row]
+            Log.e("ScheduleUI", "nodeId out of range: $row (1..$MAX_NODES)")
+            return NODE_IDS[row.coerceIn(1, MAX_NODES)]
+        }
+    }
+
     private var col = 6
 
     var showTimeDetail = true
@@ -39,6 +68,14 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
 
     // 所有网格虚线 View（保留引用用于显隐切换，不 remove）
     private val dashedViews = mutableListOf<View>()
+
+    /**
+     * W9-01：本文件里的 `nodes` **不只是业务数据，还直接当行号用**（nodeId(row) 按声明序
+     * 取 id，见 NODE_IDS）。node 系列只备了 [MAX_NODES] 个，`nodes` 超出会触发 nodeId 的
+     * “日志 + 夹紧”而不是静默落到别的控件上。设置页 SeekBar 已限 1..30，但**数据迁移与
+     * 文件导入**进来的课表没有这层保护，所以在 UI 侧统一夹紧一次，作为最后一道防线。
+     */
+    private val nodes = table.nodes.coerceIn(1, MAX_NODES)
 
     init {
         for (i in 1..7) {
@@ -75,9 +112,9 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
             6 -> 10f
             else -> 8f
         }
-        for (i in 1..table.nodes) {
+        for (i in 1..nodes) {
             addView(FrameLayout(context).apply {
-                id = R.id.anko_tv_node1 + i - 1
+                id = nodeId(i)
                 if (showTimeDetail) {
                     addView(AppCompatTextView(context).apply {
                         id = R.id.tv_start
@@ -113,19 +150,19 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                 startToStart = ConstraintSet.PARENT_ID
                 when (i) {
                     1 -> {
-                        bottomToTop = R.id.anko_tv_node1 + i
+                        bottomToTop = nodeId(i + 1)
                         topToTop = ConstraintSet.PARENT_ID
                         verticalBias = 0f
                         verticalChainStyle = ConstraintSet.CHAIN_PACKED
                     }
-                    table.nodes -> {
+                    nodes -> {
                         //bottomToTop = R.id.anko_navigation_bar_view
                         bottomToBottom = ConstraintSet.PARENT_ID
-                        topToBottom = R.id.anko_tv_node1 + i - 2
+                        topToBottom = nodeId(i - 1)
                     }
                     else -> {
-                        bottomToTop = R.id.anko_tv_node1 + i
-                        topToBottom = R.id.anko_tv_node1 + i - 2
+                        bottomToTop = nodeId(i + 1)
+                        topToBottom = nodeId(i - 1)
                     }
                 }
             })
@@ -133,7 +170,7 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
 
         if (!forWidget && context.getPrefer().getBoolean(Const.KEY_SCHEDULE_BLANK_AREA, true)) {
             addView(View(context), ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, itemHeight * 4).apply {
-                topToBottom = R.id.anko_tv_node1 + table.nodes - 1
+                topToBottom = nodeId(nodes)
                 bottomToBottom = ConstraintSet.PARENT_ID
                 startToStart = ConstraintSet.PARENT_ID
                 endToEnd = ConstraintSet.PARENT_ID
@@ -148,7 +185,7 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
             val dashColor = ContextCompat.getColor(ctx, R.color.grid_dashed)
             val thickness = ctx.dip(1)
             val pitch = itemHeight + marTop
-            for (n in 1 until table.nodes) {
+            for (n in 1 until nodes) {
                 val boundaryTop = (n - 1) * pitch + marTop + itemHeight
                 val boundaryBottom = n * pitch + marTop
                 val line = DashedLineView(ctx, DashedLineView.HORIZONTAL).apply {
@@ -169,8 +206,8 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                 dashedViews.add(line)
                 addView(line, ConstraintLayout.LayoutParams(thickness, 0).apply {
                     startToStart = R.id.anko_ll_week_panel_0 + b
-                    topToTop = R.id.anko_tv_node1
-                    bottomToBottom = R.id.anko_tv_node1 + table.nodes - 1
+                    topToTop = nodeId(1)
+                    bottomToBottom = nodeId(nodes)
                 })
             }
             // 构造时即读取偏好应用显隐（课表重建后开关依然生效）
@@ -185,7 +222,7 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                 horizontalWeight = 1f
                 when (i) {
                     0 -> {
-                        startToEnd = R.id.anko_tv_node1
+                        startToEnd = nodeId(1)
                         endToStart = R.id.anko_ll_week_panel_0 + i + 1
                     }
                     col - 2 -> {
@@ -237,7 +274,7 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
         }
         for (i in 0 until col) {
             addView(AppCompatTextView(context).apply {
-                id = R.id.anko_tv_title0 + i
+                id = R.id.anko_tv_title_col0 + i
                 setPadding(dip(4), dip(8), dip(4), dip(8))
                 textSize = 12f
                 gravity = Gravity.CENTER
@@ -268,13 +305,13 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                         horizontalWeight = 0.5f
                         startToStart = ConstraintSet.PARENT_ID
                         topToTop = ConstraintSet.PARENT_ID
-                        endToStart = R.id.anko_tv_title0 + i + 1
+                        endToStart = R.id.anko_tv_title_col0 + i + 1
                     }
                     col - 1 -> {
                         horizontalWeight = 1f
-                        startToEnd = R.id.anko_tv_title0 + i - 1
+                        startToEnd = R.id.anko_tv_title_col0 + i - 1
                         endToEnd = ConstraintSet.PARENT_ID
-                        baselineToBaseline = R.id.anko_tv_title0 + i - 1
+                        baselineToBaseline = R.id.anko_tv_title_col0 + i - 1
                         if (!forWidget) {
                             marginEnd = if (col < 8) {
                                 dip(8)
@@ -285,9 +322,9 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                     }
                     else -> {
                         horizontalWeight = 1f
-                        startToEnd = R.id.anko_tv_title0 + i - 1
-                        endToStart = R.id.anko_tv_title0 + i + 1
-                        baselineToBaseline = R.id.anko_tv_title0 + i - 1
+                        startToEnd = R.id.anko_tv_title_col0 + i - 1
+                        endToStart = R.id.anko_tv_title_col0 + i + 1
+                        baselineToBaseline = R.id.anko_tv_title_col0 + i - 1
                     }
                 }
             })
@@ -297,7 +334,7 @@ class ScheduleUI(override val ctx: Context, table: TableBean, day: Int, forWidge
                 ConstraintLayout.LayoutParams.MATCH_CONSTRAINT,
                 ConstraintLayout.LayoutParams.MATCH_CONSTRAINT).apply {
             bottomToBottom = ConstraintSet.PARENT_ID
-            topToBottom = R.id.anko_tv_title0
+            topToBottom = R.id.anko_tv_title_col0
             startToStart = ConstraintSet.PARENT_ID
             endToEnd = ConstraintSet.PARENT_ID
         })

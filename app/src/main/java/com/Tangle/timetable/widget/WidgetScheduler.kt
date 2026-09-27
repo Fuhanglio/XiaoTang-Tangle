@@ -10,6 +10,10 @@ import androidx.work.WorkManager
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.CrashLogger
 import com.Tangle.timetable.utils.getPrefer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -47,6 +51,45 @@ object WidgetScheduler {
     @Volatile
     private var canExactCached: Boolean? = null
 
+    /**
+     * W8-02：让 [canScheduleExact] 的进程级缓存失效。
+     *
+     * 这个缓存是为省反射开销加的（每次整体调度会被调用近百次），但原来是**只写不清**：
+     * 用户第一次进引导页时未授权 → 缓存 `false`；随后按引导去系统「精确闹钟」页开启、返回，
+     * `onResume → rebuild()` 读到的还是 `false` → 状态胶囊永远显示「未开启」、`allSet` 恒 false、
+     * 底部按钮永远停在「稍后再说」、`scheduleAll` 不被调用 ——
+     * **精确闹钟在本次进程内永不启用**（连 `WidgetGuideHelper.shouldShowGuide` 也跟着恒真）。
+     *
+     * 所以在"用户可能刚改过系统权限"的时机必须清掉它：引导页 `onResume`，以及每次整体调度之前。
+     */
+    fun invalidateExactCache() {
+        canExactCached = null
+    }
+
+    /**
+     * W8-01：`scheduleAll` 的后台入口。
+     *
+     * `scheduleAll` 内含近百次 `cancelAlarm` + `PendingIntent` 注册 + 反射 + **同步 Room 查询**
+     * （`AppDataBase` 全局开了 `allowMainThreadQueries`，主线程不抛异常而是**直接做 SQLite IO**）。
+     * `App.onCreate` 已刻意把它挪到 `appScope(IO)`，引导页「完成」按钮却留在主线程。
+     *
+     * 这里的作用域是**进程级**的，刻意不绑任何 Activity —— 不能绑 `lifecycleScope`，
+     * 因为调用点接着就 `finish()`，绑上会被一起取消，闹钟排到一半就断了。
+     * `SupervisorJob` 保证单次调度失败不污染后续调度。
+     */
+    private val schedulerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    fun scheduleAllAsync(context: Context) {
+        val app = context.applicationContext
+        schedulerScope.launch {
+            try {
+                scheduleAll(app)
+            } catch (t: Throwable) {
+                CrashLogger.logCaught("widget_schedule_async", t)
+            }
+        }
+    }
+
     /** Android 12+ 是否有精确闹钟权限（低版本恒为 true）。用反射兼容 compileSdk 29。 */
     fun canScheduleExact(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 31) return true   // Build.VERSION_CODES.S = 31
@@ -66,7 +109,21 @@ object WidgetScheduler {
     }
 
     /** 注册全部调度（开机/时间变化/进 App/设置改动后调用） */
+    @Synchronized
     fun scheduleAll(context: Context) {
+        // W3-12：本方法是 cancel-all-then-set 的非原子序列，而它的调用点很分散
+        // （App.onCreate / 各接收器 / 设置页 / 引导页，彼此可能并发）。
+        // 两个线程交错时会互相取消对方的闹钟（`PendingIntent` 的身份只看
+        // requestCode + Intent(action)，不看 extras，所以 cancel 会命中新建实例）。
+        // 加类级锁把整段串行化 —— 这是台账明确推荐的做法：
+        // **只做串行化，不动 cancel 机制**（改成"显式 id 列表"要额外维护状态，成本高收益低）。
+        // 顺带把 canExactCached 的读写也纳入同一把锁。
+        //
+        // W8-02：整体调度前让精确闹钟缓存失效一次 ——
+        // 同一次 scheduleAll 内部的近百次查询仍走缓存（只多一次反射），
+        // 但保证不会拿着**上一次调度**的过期结果做整轮决策
+        // （例如用户曾在后台去系统页开启了权限，随后一次开机广播触发重排）。
+        invalidateExactCache()
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         scheduleDailyRecompute(context, am)
         schedulePreviewStart(context, am)
@@ -217,6 +274,10 @@ object WidgetScheduler {
 
     /** WorkManager 30 分钟兜底周期任务 */
     private fun enqueueFallbackWork(context: Context) {
+        // W3-13④：⚠ 这里用的是 `ExistingPeriodicWorkPolicy.KEEP` ——
+        // 语义是「已存在同名周期任务就**原样保留**」，所以**改了下面的周期参数也不会生效**，
+        // 必须同时把 KEEP 改成 UPDATE，否则调参等于没调。
+        // 30 分钟这一档是有意为之：精确闹钟才是准点保障，Worker 只做"系统杀了我的兜底"。
         val request = androidx.work.PeriodicWorkRequest.Builder(
                 WidgetWorker::class.java, 30, TimeUnit.MINUTES).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(

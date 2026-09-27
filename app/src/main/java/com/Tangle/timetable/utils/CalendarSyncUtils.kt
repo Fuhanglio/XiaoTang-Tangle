@@ -20,6 +20,35 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
+ * ⚠️ 本文件目前处于「休眠」状态，动它之前请先读完这段（2026-09-27 复核结论）。
+ *
+ * 【现状：写日历的实现全都零调用点】
+ * 下面这些成员在当前工程里**没有任何调用点**，属于 v143 那次改动的遗留：
+ *   `syncTable` / `queryWritableCalendars` / `ensureLocalCalendar`
+ * 原因：v143 移除了「同步到系统日历」的 UI 入口，入口一没，整条链路就断了
+ * （见 `ScheduleManageFragment.kt` 里 W8-08 那条注释）。
+ *
+ * 【唯一还活着的：清理路径】
+ * `deleteSyncedEventsAllProviders` 是唯一有调用点的成员，作用是把老版本写进用户系统日历的事件删掉；
+ * 它的调用点被 `hasPermission()` 挡着。工程内目前没有任何日历权限申请，所以新设备上它恒为 false、不会执行；
+ * 但**权限一旦授予会持久保留**，v143 之前授权过的老设备上它仍然是 true，
+ * 在那批设备上这条清理路径是真活的。
+ *
+ * 【为什么保留而不是删掉】
+ * 1. 删除不可逆：删了之后那批老设备的系统日历里，旧事件就再也没人能清；
+ * 2. 它是后续接 OPPO 负一屏日历卡的地基，重写成本远高于闲置成本。
+ *
+ * 【要重启这套同步，需要做这几件事（重启清单）】
+ * a. 先恢复一个申请 `READ_CALENDAR` / `WRITE_CALENDAR` 的入口（UI 或引导流程），
+ *    否则 `hasPermission()` 永远 false，后面全都跑不起来；
+ * b. 恢复入口前先复读 `AUTHORITY_CANDIDATES`：里面已含 `com.coloros.calendar`，
+ *    ColorOS 上要实测哪条 authority 真的可写，别照搬 AOSP 的 `com.android.calendar`；
+ * c. 重新挂上 `syncTable` 的调用点，并确认它对「已有同名日程」的去重逻辑仍与现有标记格式一致
+ *    （标记写在备注第一行：每节课 `[小唐Tangle#课表id]`、日课表 `[小唐Tangle#日课#课表id]`）；
+ * d. 清理路径必须向后兼容：老标记格式的历史日程仍然要能被删掉。
+ */
+
+/**
  * 把整学期课表写进系统日历，一共写两类日程：
  *
  * 1. **每节课**：每周循环的日程，带「提前 15 分钟」提醒；

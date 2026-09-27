@@ -1,5 +1,13 @@
 package com.Tangle.timetable.schedule_import.login_school.suda
 
+/*
+ * W5-10：本文件是**苏大选课系统前端逻辑的复刻**（含其表单字段与编码约定）。
+ *
+ * ⚠ 刻意保留、不要"优化"：这些字段名/编码方式由对方页面的 JS 与后端共同决定，
+ *   客户端改动会直接导致选课/查询失败，且无法在客户端侧单独修好。
+ * ⇒ 会话安全只能由 HTTPS 保证（见 W5-03 的明文流量收敛），不要把这里当作安全边界。
+ */
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import com.Tangle.timetable.schedule_import.exception.*

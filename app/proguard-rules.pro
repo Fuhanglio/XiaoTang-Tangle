@@ -76,7 +76,10 @@
 # 保留我们使用的四大组件，自定义的Application等等这些类不被混淆
 # 因为这些子类都有可能被外部调用
 -keep public class * extends android.app.Activity
--keep public class * extends android.app.Appliction
+# W4-09：此处原为 android.app.Appliction（漏了 a），类名拼错 → 该条**永不匹配**。
+# 之所以一直没出事：App 类写在 Manifest 的 android:name 里，AGP 会为它生成 aapt 规则保住，
+# 属"侥幸正确"。改正后这条才真正生效。
+-keep public class * extends android.app.Application
 -keep public class * extends android.app.Service
 -keep public class * extends android.content.BroadcastReceiver
 -keep public class * extends android.content.ContentProvider
@@ -86,14 +89,11 @@
 -keep public class com.android.vending.licensing.ILicensingService
 
 
-# 保留support下的所有类及其内部类
--keep class android.support.** {*;}
-#
-# 保留继承的
--keep public class * extends android.support.v4.**
--keep public class * extends android.support.v7.**
--keep public class * extends android.support.annotation.**
-#
+# W4-08：原此处有一组 android.support.** 的 keep 规则（`android.support.**`、
+# `* extends android.support.v4.** / v7.** / annotation.**`）。
+# 本工程 android.useAndroidX=true + android.enableJetifier=true，源码里 `android.support` 0 命中，
+# Jetifier 会把第三方 AAR 里的 support 引用在构建期改写成 androidx →
+# 最终依赖图里已经没有 android.support 类，这几条 keep 保护的是**不存在的类**，属漂移规则，已删。
 # 保留R下面的资源
 -keep class **.R$* {*;}
 
@@ -153,22 +153,38 @@
 #
 #############################################
 
--keep class * extends android.support.v7.widget.LinearLayoutManager
+# W4-08：原此处为 `-keep class * extends android.support.v7.widget.LinearLayoutManager`。
+# 工程已全面 androidx（useAndroidX + enableJetifier，源码 android.support 0 命中），
+# 该类在最终依赖图里不存在 → 漂移规则，已删。
 
 #-----------处理第三方依赖库---------
 
 # BRVAH
+# W4-08：`BaseViewHolder` 在 BRVAH 3.x 已从 com.chad.library.adapter.base 移到
+# com.chad.library.adapter.base.viewholder 子包。已解包 BaseRecyclerViewAdapterHelper-3.0.0-beta11.aar
+# 核对：classes.jar 里只有 com/chad/library/adapter/base/viewholder/BaseViewHolder.class，
+# 旧路径不存在 → 原三条规则**永不匹配**（"看起来保了、其实没保"）。下面已改为正确包名。
 -keep class com.chad.library.adapter.** {
 *;
 }
+# W4-10：上面这条 `-keep class com.chad.library.adapter.** { *; }` 把整个 BRVAH 包都留下了，
+# 它是本工程**最粗的一颗 keep**（BRVAH 3.0.0-beta11 的类本来就全部被反射/泛型擦除牵连）。
+# 结论：**无法在规则层面"弱化"** —— keep 规则只能取并集、不能相减；去掉它会在 release 下
+# 出现 adapter 内部类被裁导致的运行时崩溃。
+# ⇒ 本批**接受现状**（代价：混淆强度略降、包体略大，但不出功能故障）。
+#   若要真正收窄，只有一条路：升级到 BRVAH 4.x（其内部结构对 R8 更友好），
+#   那属于**依赖升级**，要单独评估（会把 BaseQuickAdapter 的泛型签名与
+#   `setOnItemChildClickListener` 等 API 换掉，牵动所有列表页）。
 -keep public class * extends com.chad.library.adapter.base.BaseQuickAdapter
--keep public class * extends com.chad.library.adapter.base.BaseViewHolder
--keepclassmembers  class **$** extends com.chad.library.adapter.base.BaseViewHolder {
+-keep public class * extends com.chad.library.adapter.base.viewholder.BaseViewHolder
+-keepclassmembers  class **$** extends com.chad.library.adapter.base.viewholder.BaseViewHolder {
      <init>(...);
 }
 
 # fabric crashlytics
--keep class com.crashlytics.** { *; }
+# W4-08：本工程从未引入 Crashlytics（build.gradle 里 grep 无命中），
+# 原 `-keep class com.crashlytics.** { *; }` 保护的是不存在的类，已删。
+# 而 `-dontwarn com.crashlytics.**` **刻意保留** —— 见下方 -dontwarn 段落的统一说明。
 -dontwarn com.crashlytics.**
 
 # Glide
@@ -183,24 +199,45 @@
     native <methods>;
 }
 
--keep class net.fortuna.ical4j.** { *; }
+# W4-08：原此处有 `-keep class net.fortuna.ical4j.** { *; }`。
+# 本工程用的是 biweekly（net.sf.biweekly:biweekly:0.6.3），已解包 biweekly-0.6.3.jar 核对：
+# 顶层包只有 biweekly.*，**没有** net/fortuna/ical4j → 该 keep 保护的是不存在的类，已删。
 
+# ⚠ 关于下面这一整组 -dontwarn：
+#   -dontwarn 与 -keep 的**风险方向相反**：
+#     · 删掉一条指向不存在类的 -keep → 零影响（本来就没保护到任何东西）
+#     · 删掉一条 -dontwarn    → 只要依赖图里有一处引用了该类，R8 会以
+#       "Missing classes detected while running R8" **直接让 release 构建失败**
+#
+# W4-07（2026-09-26）：release 链路第一次真正跑起来，R8 **当场就报了一个缺口**：
+#   ERROR: Missing class com.fasterxml.jackson.core.JsonToken
+#          (referenced from: biweekly.io.json.JCalParseException.actual and 5 other contexts)
+#   根因：biweekly（net.sf.biweekly:biweekly:0.6.3）把 Jackson 当**可选**依赖参与部分路径，
+#   而工程没有引 Jackson → R8 全模式下"引用了不存在的类"是**错误**而不是警告。
+#   这条恰好印证了上面那句话：缺一条 -dontwarn 就炸 release。
+#   官方建议的单类写法是 `-dontwarn com.fasterxml.jackson.core.JsonToken`，
+#   这里放大到整个 core 包 —— biweekly 对 Jackson 的引用不止一处（报错原文即 "and 5 other contexts"），
+#   逐个补会在下次升级时再报一遍。
+-dontwarn com.fasterxml.jackson.core.**
+
+# W4-08（收尾）：以下 5 条经 2026-09-26 的**真实 R8 运行**验证为冗余，已删除：
+#   net.fortuna.ical4j.model.**  —— 解包 biweekly-0.6.3.jar 确认无此包（无引用点）
+#   groovy.** / org.codehaus.groovy.** / aQute.bnd.** / com.squareup.picasso.**
+#                                —— 依赖图里根本没有对应库
+# 删除依据不是"猜"，而是"删掉后 R8 仍然通过"（见 build_r8.log / B27 报告）。
+# 若将来某次升级后又出现 Missing class，R8 会在 missing_rules.txt 里给出该补哪一条。
 -dontwarn javax.annotation.**
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn retrofit2.Platform$Java8
 
-# for iCal4J
--dontwarn net.fortuna.ical4j.model.**
+# for iCal4J —— W4-08：原 `-dontwarn net.fortuna.ical4j.model.**` 已随下方 5 条一并删除
+# （biweekly 0.6.3 不含该包；且删掉后真实 R8 运行通过）。
 -dontwarn org.slf4j.impl.**
--dontwarn groovy.**
--dontwarn org.codehaus.groovy.**
 -dontwarn org.apache.commons.logging.**
 -dontwarn sun.misc.Perf
--dontwarn aQute.bnd.**
 
-# Matisse
--dontwarn com.squareup.picasso.**
+# Glide（W4-08：原来的 `# Matisse` + `-dontwarn com.squareup.picasso.**` 已删 —— 工程未用 Matisse/Picasso）
 -dontwarn com.bumptech.glide.**
 
 # for retrofit 2
