@@ -162,6 +162,8 @@ class ScheduleManageFragment : BaseFragment() {
                                     AppDatabase.getDatabase(activity!!.applicationContext)
                                             .appWidgetDao().deleteAppWidgetByInfo(tid.toString())
                                     viewModel.deleteTable(tid)
+                                    // v167+：删课表后重排闹钟，确保被删表课程的精确闹钟不再残留。
+                                    com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(activity!!.applicationContext)
                                     adapter.remove(position)
                                     // 所有小部件按各自绑定重新取数（被删表的部件回落到默认表/空态）
                                     context!!.sendBroadcast(

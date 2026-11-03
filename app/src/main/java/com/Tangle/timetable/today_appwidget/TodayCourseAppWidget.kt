@@ -103,7 +103,7 @@ class TodayCourseAppWidget : AppWidgetProvider() {
         goAsync {
             val table = tableDao.getDefaultTable() ?: return@goAsync
             AppWidgetUtils.refreshTodayWidget(context, appWidgetManager, appWidgetId, table,
-                    overrideOptions = newOptions)
+                    overrideOptions = newOptions, force = true)
         }
     }
 }

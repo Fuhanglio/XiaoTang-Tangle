@@ -17,6 +17,7 @@ import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.ThemeManager
 import com.Tangle.timetable.utils.getPrefer
 import com.Tangle.timetable.update.UpdateManager
+import com.Tangle.timetable.widget.WidgetRefreshPolicy
 import com.Tangle.timetable.widget.WidgetScheduler
 import com.Tangle.timetable.widget.WidgetUpdateReceiver
 import es.dmoral.toasty.Toasty
@@ -168,12 +169,22 @@ class App : Application() {
                     }
                     appScope.launch {
                         try {
+                            // v167 亮屏闸门：内容没变 / 距上次刷新 <30 分钟 → 直接秒退，
+                            // 不再白白调一次 refreshAllWidgets（每小时能省 2 次）。
+                            val trigger = when (i?.action) {
+                                android.content.Intent.ACTION_USER_PRESENT -> WidgetRefreshPolicy.Trigger.USER_PRESENT
+                                else -> WidgetRefreshPolicy.Trigger.SCREEN_ON
+                            }
+                            if (!WidgetRefreshPolicy.shouldRefresh(this@App, trigger)) {
+                                return@launch
+                            }
                             WidgetUpdateReceiver.refreshAllWidgets(this@App)
-                            // W3-13②：解锁（ACTION_USER_PRESENT）比单纯亮屏更强地意味着
-                            // "用户真的回来了"，此时顺带重排一次闹钟；SCREEN_ON 仍只刷新数据。
-                            // scheduleAll 是幂等的，且 WidgetUpdateReceiver 侧已有 60 秒节流。
+                            // W3-13② / v167：解锁（ACTION_USER_PRESENT）比单纯亮屏更强地意味着
+                            // "用户真的回来了"。这里只 rescheduleCourseAlarms ——
+                            // 只补课程闹钟 + 倒计时 tick，不再全量 scheduleAll（省 96 次 cancel + 2 次 set）。
+                            // SCREEN_ON 只刷新数据，不重排闹钟。
                             if (i?.action == android.content.Intent.ACTION_USER_PRESENT) {
-                                WidgetScheduler.scheduleAll(this@App)
+                                WidgetScheduler.rescheduleCourseAlarms(this@App)
                             }
                         } catch (t: Throwable) {
                             com.Tangle.timetable.utils.CrashLogger.logCaught("screen_on", t)

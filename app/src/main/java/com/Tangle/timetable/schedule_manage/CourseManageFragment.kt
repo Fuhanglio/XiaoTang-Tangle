@@ -88,6 +88,10 @@ class CourseManageFragment : BaseFragment() {
                         launch {
                             try {
                                 viewModel.clearTable(table!!.id)
+                                // v167+：清空课表后必须重排闹钟 —— 旧精确闹钟（START/END/REMIND）由
+                                // WidgetScheduler.scheduleCourseAlarms 里的 for 0..MAX_COURSE_ALARMS cancel 统一清掉，
+                                // 这里调用 rescheduleCourseAlarms 让新闹钟从零排起。
+                                com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(context!!)
                                 // W1-10：清空已入库，列表若还没就绪就跳过 UI 刷新（数据是干净的）
                                 if (::adapter.isInitialized) {
                                     adapter.data.clear()
@@ -131,6 +135,8 @@ class CourseManageFragment : BaseFragment() {
                     .setPositiveButton(R.string.sure) { _, _ ->
                         launch {
                             viewModel.deleteCourse(data[position])
+                            // v167+：删单课后重排闹钟，确保被删课的 START/END/REMIND 精确闹钟不再残留。
+                            com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(context!!)
                             adapter.remove(position)
                             Toasty.success(context!!, "删除成功~").show()
                             val list = viewModel.getScheduleWidgetIds()

@@ -89,7 +89,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         // 统一兜底：各解析器的 generateCourseList 里存在裸 NPE / 越界（页面改版、错误页），
         // 原样抛出会以 NPE 形态直接崩到导入页；这里转成可读的业务异常。
         try {
-            return parser?.saveCourse(getApplication(), importId) { baseList, detailList ->
+            val saved = parser?.saveCourse(getApplication(), importId) { baseList, detailList ->
                 if (!newFlag) {
                     courseDao.coverImport(baseList, detailList)
                 } else {
@@ -97,6 +97,9 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                     courseDao.insertCourses(baseList, detailList)
                 }
             } ?: throw Exception("请确保选择正确的教务类型，以及到达显示课程的页面")
+            // v167+：Web 导入写库完成后重排闹钟，确保新导入课的精确闹钟立即生效。
+            com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(getApplication())
+            return saved
         } catch (e: Exception) {
             throw Exception("导入失败：${e.message ?: e.javaClass.simpleName}\n请确认教务类型与页面是否匹配，或改用截图 / 文件导入")
         }
@@ -786,6 +789,8 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 courseDao.insertCourses(courseBaseList, courseDetailList)
             }
         }
+        // v167+：wakeup_schedule 文件导入完成后重排闹钟
+        com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(getApplication())
     }
 
     suspend fun importFromExcel(uri: Uri?): Int {
@@ -808,7 +813,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
         val parser = CSVParser(source)
-        return parser.saveCourse(getApplication(), importId) { baseList, detailList ->
+        val saved = parser.saveCourse(getApplication(), importId) { baseList, detailList ->
             if (!newFlag) {
                 courseDao.coverImport(baseList, detailList)
             } else {
@@ -816,6 +821,9 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 courseDao.insertCourses(baseList, detailList)
             }
         }
+        // v167+：CSV 导入完成后重排闹钟
+        com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(getApplication())
+        return saved
     }
 
     /**
@@ -857,6 +865,8 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             tableDao.insertTable(TableBean(id = importId, tableName = "未命名"))
             courseDao.insertCourses(baseList, detailList)
         }
+        // v167+：图片/文本解析直接写库完成后重排闹钟
+        com.Tangle.timetable.widget.WidgetScheduler.rescheduleCourseAlarms(getApplication())
         return baseList.size
     }
 

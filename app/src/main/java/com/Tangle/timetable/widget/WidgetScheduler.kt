@@ -2,11 +2,14 @@ package com.Tangle.timetable.widget
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.WorkManager
+import com.Tangle.timetable.next_appwidget.NextCourseAppWidget
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.CrashLogger
 import com.Tangle.timetable.utils.getPrefer
@@ -35,12 +38,16 @@ object WidgetScheduler {
     const val ACTION_REMIND = "com.Tangle.timetable.action.COURSE_REMIND"
     /** 20:00 课程预告放行点：到点刷新一次，让卡片从「今天」切到「预告」 */
     const val ACTION_PREVIEW_START = "com.Tangle.timetable.action.WIDGET_PREVIEW_START"
+    /** 下一节课卡倒计时刷新：由可延迟闹钟（AllowIdle）驱动，不占精确闹钟配额 */
+    const val ACTION_COUNTDOWN = "com.Tangle.timetable.action.WIDGET_COUNTDOWN"
 
     private const val RC_RECOMPUTE = 1000
     private const val RC_BASE_START = 2000
     private const val RC_BASE_END = 4000
     private const val RC_BASE_REMIND = 6000
     private const val RC_PREVIEW_START = 8000
+    private const val RC_COUNTDOWN_BASE = 9000
+    private const val MAX_COUNTDOWN_TICKS = 12
 
     /** 单日闹钟槽位上限：一天最多 12 节课足够覆盖，取消旧闹钟时按这个范围扫 */
     private const val MAX_COURSE_ALARMS = 32
@@ -127,8 +134,19 @@ object WidgetScheduler {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         scheduleDailyRecompute(context, am)
         schedulePreviewStart(context, am)
-        scheduleCourseAlarms(context, am)
+        rescheduleCourseAlarms(context, am)
         enqueueFallbackWork(context)
+    }
+
+    /**
+     * 仅重排「课程闹钟 + 倒计时 tick」：课程开始/结束、WorkManager 兜底跑时调用，
+     * 省掉 00:05 重算、20:00 预告、WorkManager 本身这三样时间轴没变的东西。
+     */
+    @Synchronized
+    fun rescheduleCourseAlarms(context: Context, am: AlarmManager =
+        context.getSystemService(Context.ALARM_SERVICE) as AlarmManager) {
+        scheduleCourseAlarms(context, am)
+        scheduleCountdownTicks(context, am)
     }
 
     /**
@@ -136,8 +154,12 @@ object WidgetScheduler {
      * 20 点前今日卡停在「今天」，到点必须主动刷一次，卡片才会切到「第二天预告」。
      * 不注册的话只能等每 30 分钟的兜底 Worker（最坏晚约半小时才翻）。
      * 已过 20 点则排到明天 20:00（每天 20:00 都会由 ACTION_RECOMPUTE 或本闹钟自身重排）。
+     *
+     * v167 改：① 加闸门 —— 明天起预览窗口内没课（周末/长假）时，刷了内容也不变，直接跳过；
+     *          ② 去精确闹钟 —— 晚几十分钟无感，凌晨精确闹钟会打破 Doze。
      */
     private fun schedulePreviewStart(context: Context, am: AlarmManager) {
+        if (!WidgetRefreshPolicy.hasCourseInPreviewWindow(context)) return
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, WidgetData.PREVIEW_START_HOUR)
             set(Calendar.MINUTE, 0)
@@ -146,27 +168,15 @@ object WidgetScheduler {
             // 今天 20:00 已过 → 排到明天 20:00
             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
         }
-        val pi = PendingIntent.getBroadcast(
-                context, RC_PREVIEW_START,
-                Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_PREVIEW_START),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        // 20:00 放行点决定卡片何时切「明天预告」，有精确权限时用精确闹钟减少滞后
-        try {
-            if (canScheduleExact(context)) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-            }
-        } catch (e: SecurityException) {
-            // 仅对无精确闹钟权限降级为可延迟闹钟
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-        } catch (e: RuntimeException) {
-            CrashLogger.logCaught("widget_schedule", e)
-        }
+        setAlarmAllowIdle(context, am, RC_PREVIEW_START, cal.timeInMillis, ACTION_PREVIEW_START)
     }
 
-    /** 每天 00:05 重算（跨天后重建当天闹钟） */
+    /**
+     * 每天 00:05 重算（跨天后重建当天闹钟）。
+     *
+     * v167 改：去掉精确闹钟，无条件走可延迟 `setAlarmAllowIdle`。
+     * 凌晨无人看卡片，晚几十分钟无感；而精确闹钟会强制打破 Doze，是夜间耗电的直接来源。
+     */
     private fun scheduleDailyRecompute(context: Context, am: AlarmManager) {
         val cal = Calendar.getInstance().apply {
             add(Calendar.DAY_OF_YEAR, 1)
@@ -175,24 +185,7 @@ object WidgetScheduler {
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        val pi = PendingIntent.getBroadcast(
-                context, RC_RECOMPUTE,
-                Intent(context, WidgetUpdateReceiver::class.java).setAction(ACTION_RECOMPUTE),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        // 跨天重算是当日所有闹钟的源头，有精确权限时用精确闹钟，避免 Doze 推迟导致跨天滞后
-        try {
-            if (canScheduleExact(context)) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-            } else {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-            }
-        } catch (e: SecurityException) {
-            // 仅对无精确闹钟权限降级为可延迟闹钟
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-        } catch (e: RuntimeException) {
-            CrashLogger.logCaught("widget_schedule", e)
-        }
+        setAlarmAllowIdle(context, am, RC_RECOMPUTE, cal.timeInMillis, ACTION_RECOMPUTE)
     }
 
     /** 为今天所有课程注册 开始/结束/课前提醒 闹钟 */
@@ -272,16 +265,90 @@ object WidgetScheduler {
         }
     }
 
-    /** WorkManager 30 分钟兜底周期任务 */
+    /**
+     * WorkManager 兜底周期任务。
+     *
+     * v167 改：30 → 180 分钟，KEEP → UPDATE。
+     * KEEP 语义是「已存在同名周期任务就原样保留」，改了周期参数对老用户不生效（原注释已点出此坑）。
+     * UPDATE 让升级时新的 180 分钟周期生效；Worker 内部还有触发闸门（WidgetRefreshPolicy.shouldRefresh），
+     * 无课日 / 课后 / 24h 内已刷过时会秒退，180 分钟兜底加上闸门后实际刷新频率远低于标称值。
+     */
     private fun enqueueFallbackWork(context: Context) {
-        // W3-13④：⚠ 这里用的是 `ExistingPeriodicWorkPolicy.KEEP` ——
-        // 语义是「已存在同名周期任务就**原样保留**」，所以**改了下面的周期参数也不会生效**，
-        // 必须同时把 KEEP 改成 UPDATE，否则调参等于没调。
-        // 30 分钟这一档是有意为之：精确闹钟才是准点保障，Worker 只做"系统杀了我的兜底"。
         val request = androidx.work.PeriodicWorkRequest.Builder(
-                WidgetWorker::class.java, 30, TimeUnit.MINUTES).build()
+                WidgetWorker::class.java, 180, TimeUnit.MINUTES).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
+    /**
+     * 「下一节课」卡倒计时刷新：只在开课前 120 分钟内、按 10 分钟粒度排 tick。
+     * 用可延迟闹钟（不精确、可被 Doze 合并），不占用精确闹钟配额。
+     * 窗口外（周末、课后、长假）一条都不排 —— 这是本卡从 30 分钟轮询降到 0 的关键。
+     *
+     * ⚠️ 关键补充：若下一节课还在 120 分钟之外（典型：00:05 重算时，第一节课在 8 小时之后），
+     * 不能什么都不排 —— 否则永远进不了窗口。此时只排「窗口开启」一条闹钟，到点后再由
+     * rescheduleCourseAlarms 排真正的 tick 链。
+     */
+    private fun scheduleCountdownTicks(context: Context, am: AlarmManager) {
+        for (i in 0..MAX_COUNTDOWN_TICKS) {
+            cancelAlarm(context, am, RC_COUNTDOWN_BASE + i, ACTION_COUNTDOWN)
+        }
+        // 没放「下一节课」部件就不排
+        val hasNextWidget = AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, NextCourseAppWidget::class.java)).isNotEmpty()
+        if (!hasNextWidget) return
+
+        val next = WidgetData.getNextCourse(context) ?: return
+        val now = System.currentTimeMillis()
+        if (next.startMillis <= now) return
+
+        val windowStart = next.startMillis -
+                WidgetRefreshPolicy.COUNTDOWN_WINDOW_MIN * 60_000L
+        if (windowStart > now) {
+            // 还没进窗口：只排一条「窗口开启」信号（windowOpen=true），到点后再展开 tick 链
+            setAlarmAllowIdle(context, am, RC_COUNTDOWN_BASE, windowStart,
+                    ACTION_COUNTDOWN, windowOpen = true)
+            return
+        }
+
+        // 已在窗口内：按 10 分钟粒度铺到开课时刻
+        var triggerAt = now + WidgetRefreshPolicy.COUNTDOWN_STEP_MIN * 60_000L
+        var i = 0
+        while (triggerAt < next.startMillis && i < MAX_COUNTDOWN_TICKS) {
+            setAlarmAllowIdle(context, am, RC_COUNTDOWN_BASE + i, triggerAt, ACTION_COUNTDOWN)
+            triggerAt += WidgetRefreshPolicy.COUNTDOWN_STEP_MIN * 60_000L
+            i++
+        }
+    }
+
+    /**
+     * 可延迟闹钟（允许 Doze 合并、不精确）。API 21/22 没有 setAndAllowWhileIdle，降级为 set()。
+     * 用于「晚几分钟无感」的场景：跨天重算、20:00 预告、下一节课倒计时。
+     *
+     * @param windowOpen 仅 ACTION_COUNTDOWN 使用：true = 这条是「倒计时窗口开启」信号，
+     *                   接收方需要把 tick 链展开。
+     */
+    private fun setAlarmAllowIdle(context: Context, am: AlarmManager,
+                                  requestCode: Int, triggerAt: Long, action: String,
+                                  windowOpen: Boolean = false) {
+        val intent = Intent(context, WidgetUpdateReceiver::class.java).apply {
+            this.action = action
+            putExtra("windowOpen", windowOpen)
+        }
+        val pi = PendingIntent.getBroadcast(context, requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            } else {
+                am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            }
+        } catch (e: SecurityException) {
+            runCatching { am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi) }
+                    .onFailure { CrashLogger.logCaught("widget_schedule", it) }
+        } catch (e: RuntimeException) {
+            CrashLogger.logCaught("widget_schedule", e)
+        }
     }
 }
 

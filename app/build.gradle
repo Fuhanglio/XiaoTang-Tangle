@@ -89,8 +89,8 @@ android {
         minSdkVersion 21
         targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 166
-        versionName "3.697"
+        versionCode 167
+        versionName "3.698"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         ndk {

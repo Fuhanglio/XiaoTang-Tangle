@@ -69,7 +69,7 @@ class ScheduleAppWidget : AppWidgetProvider() {
     override fun onAppWidgetOptionsChanged(context: Context, appWidgetManager: AppWidgetManager,
                                           appWidgetId: Int, newOptions: Bundle) {
         goAsync {
-            AppWidgetUtils.refreshWidgetById(context.applicationContext, appWidgetManager, appWidgetId, 0)
+            AppWidgetUtils.refreshWidgetById(context.applicationContext, appWidgetManager, appWidgetId, 0, force = true)
         }
     }
 

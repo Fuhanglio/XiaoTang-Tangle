@@ -5,18 +5,22 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 /**
- * WorkManager 兜底任务：每 30 分钟刷新一次所有小部件，
- * 防止精确闹钟被系统杀掉后小部件长时间不更新。
+ * WorkManager 兜底任务。
  *
- * W3-14：原来只做 `refreshAllWidgets`，不补种调度 → 闹钟链一旦被杀，
- * 兜底 Worker 能救 UI，但**永远救不回闹钟**（刷新会一直靠 30 分钟级的 Worker 撑着）。
- * 现在顺手调 `scheduleAll`，让每一次兜底同时把精确闹钟链重新注册回来（幂等）。
+ * v167 改：周期 30→180 分钟 + 触发闸门前置。
+ * 无课日 / 课后 / 24h 内已刷过时，闸门返回 false → 直接秒退，不做任何渲染；
+ * 真跑时也只重排课程闹钟 + 倒计时 tick，不再全量 scheduleAll。
  */
 class WidgetWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-        WidgetUpdateReceiver.refreshAllWidgets(applicationContext)
-        // 兜底同时补种闹钟链；scheduleAll 内部逐个 schedule 都有异常兜底，不会让本 Worker 失败
-        WidgetScheduler.scheduleAll(applicationContext)
+        val ctx = applicationContext
+        // 闸门先进：无课日 / 课后 / 24h 内已刷过 → 直接秒退
+        if (!WidgetRefreshPolicy.shouldRefresh(ctx, WidgetRefreshPolicy.Trigger.WORKER)) {
+            return Result.success()
+        }
+        WidgetUpdateReceiver.refreshAllWidgets(ctx)
+        // 兜底补种闹钟链：只补课程闹钟，不再全量重排（省 96 次 cancel + 2 次 alarm set）
+        WidgetScheduler.rescheduleCourseAlarms(ctx)
         return Result.success()
     }
 }

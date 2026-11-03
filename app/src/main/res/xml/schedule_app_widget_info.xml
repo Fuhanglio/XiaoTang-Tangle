@@ -7,5 +7,5 @@
     android:minHeight="200dp"
     android:previewImage="@drawable/widget_preview_week"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="10800000"
+    android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />

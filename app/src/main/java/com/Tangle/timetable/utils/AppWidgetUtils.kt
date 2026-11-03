@@ -19,6 +19,8 @@ import com.Tangle.timetable.schedule_appwidget.ScheduleAppWidget
 import com.Tangle.timetable.schedule_settings.BirthdayReminderActivity
 import com.Tangle.timetable.today_appwidget.TodayCourseAppWidget
 import com.Tangle.timetable.widget.WidgetData
+import com.Tangle.timetable.widget.WidgetFingerprint
+import com.Tangle.timetable.widget.WidgetRefreshPolicy
 import com.Tangle.timetable.widget.WidgetScheduler
 import com.Tangle.timetable.widget.WidgetUpdateReceiver
 import com.Tangle.timetable.utils.ThemeManager
@@ -129,7 +131,7 @@ object AppWidgetUtils {
         return if (h in 1..2000) h else fallback
     }
 
-    fun refreshScheduleWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextWeek: Boolean = false) {
+    fun refreshScheduleWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextWeek: Boolean = false, force: Boolean = false) {
         val mRemoteViews = RemoteViews(context.packageName, R.layout.schedule_app_widget)
         val isDark = ThemeManager.isDark(context)
         if (isDark) {
@@ -268,6 +270,19 @@ object AppWidgetUtils {
         val addPi = PendingIntent.getActivity(context, appWidgetId, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_add, addPi)
 
+        // v167：内容指纹闸 —— 内容没变就不下发 RemoteViews，省一次 binder IPC + launcher 重绘
+        val fpKey = "schedule_$appWidgetId"
+        val rowFp = rows.joinToString("\u2016") {
+            "${it.dayIndex}|${it.dayLabel}|${it.courses}|${it.color}|${it.isToday}"
+        }
+        val hash = WidgetFingerprint.hashOf(
+                context, tableBean.id, tableBean.tableName, plan.week,
+                plan.notStarted, plan.over, plan.rangeText, maxRows,
+                isDark, primary, nextWeek, rowFp)
+        if (!force && WidgetFingerprint.isUnchanged(context, fpKey, hash)) {
+            return
+        }
+        WidgetFingerprint.remember(context, fpKey, hash)
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
     }
 
@@ -275,20 +290,18 @@ object AppWidgetUtils {
      * 按数据库登记的实例 id 刷新对应小部件。
      * 供 App 内增删课程后调用（detailType：0 = 周课表，其它 = 今日课程）。
      */
-    fun refreshWidgetById(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, detailType: Int) {
+    fun refreshWidgetById(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, detailType: Int, force: Boolean = false) {
         try {
             val db = AppDatabase.getDatabase(context)
             val tableDao = db.tableDao()
-            // 优先按部件登记的 info（绑定课表 id）取表，与 refreshAllWidgets 的口径一致；
-            // 旧实现一律取默认表，增删改课后会把绑定非默认表的周课表部件刷成默认表内容
             val boundId = db.appWidgetDao().getWidgetByIdSync(appWidgetId)
                     ?.info?.takeIf { it.isNotEmpty() }?.toIntOrNull() ?: -1
             val table = (if (boundId > 0) tableDao.getTableByIdSync(boundId) else null)
                     ?: tableDao.getDefaultTableSync() ?: return
             if (detailType == 0) {
-                refreshScheduleWidget(context, appWidgetManager, appWidgetId, table)
+                refreshScheduleWidget(context, appWidgetManager, appWidgetId, table, force = force)
             } else {
-                refreshTodayWidget(context, appWidgetManager, appWidgetId, table)
+                refreshTodayWidget(context, appWidgetManager, appWidgetId, table, force = force)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -301,7 +314,7 @@ object AppWidgetUtils {
      *   今天课全上完时自动预告明天；课程开始/结束闹钟与每日重算触发的都是自动模式；
      * - manual=true：iv_next/iv_back 的临时查看（强制显示 nextDay 指定的一天）。
      */
-    fun refreshTodayWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextDay: Boolean = false, manual: Boolean = false, overrideOptions: Bundle? = null) {
+    fun refreshTodayWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, tableBean: TableBean, nextDay: Boolean = false, manual: Boolean = false, overrideOptions: Bundle? = null, force: Boolean = false) {
         try {
         val mRemoteViews = RemoteViews(context.packageName, R.layout.today_course_app_widget)
 
@@ -675,6 +688,22 @@ object AppWidgetUtils {
         val backPi = PendingIntent.getBroadcast(context, 2, backIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         mRemoteViews.setOnClickPendingIntent(R.id.iv_back, backPi)
 
+        // v167：内容指纹闸 —— 内容没变就不下发
+        val fpKey = "today_$appWidgetId"
+        val courseFp = rowItems.joinToString("\u2016") { item ->
+            "${item.courseName}|${item.room}|${item.startText}|${item.endText}|${item.status}|${item.color}|${item.minutesUntilStart / 10}"
+        }
+        val emptyText = if (empty) WidgetData.getIdlePhrase(context) else ""
+        val birthdayFp = if (showBirthday) "1|${BirthdayUtils.month(context)}|${BirthdayUtils.day(context)}|${BirthdayUtils.text(context)}" else "0|"
+        val primaryFp = ThemeManager.getColor(context, ThemeManager.PRIMARY)
+        val hash = WidgetFingerprint.hashOf(
+                context, tableBean.id, offset, smart.total, smart.week, hideEnded,
+                isDark, primaryFp, cardHeightDp, compact, maxItems, courseFp, emptyText, birthdayFp)
+        if (!force && WidgetFingerprint.isUnchanged(context, fpKey, hash)) {
+            return
+        }
+        WidgetFingerprint.remember(context, fpKey, hash)
+
         appWidgetManager.updateAppWidget(appWidgetId, mRemoteViews)
         } catch (t: Throwable) {
             // 渲染抛异常时也要把布局默认的「加载中…」顶掉：推一张最小空态卡，
@@ -711,7 +740,7 @@ object AppWidgetUtils {
     /**
      * “下一节课”小部件渲染（静态 RemoteViews，随主题主色变色）。
      */
-    fun refreshNextWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+    fun refreshNextWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, force: Boolean = false) {
         val rv = RemoteViews(context.packageName, R.layout.next_course_app_widget)
         val next = WidgetData.getNextCourse(context)
         val primary = ThemeManager.getColor(context, ThemeManager.PRIMARY)
@@ -751,6 +780,24 @@ object AppWidgetUtils {
                 Intent(context, WidgetUpdateReceiver::class.java).setAction("com.Tangle.timetable.action.WIDGET_OPEN_APP"),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         rv.setOnClickPendingIntent(R.id.next_root, openPi)
+
+        // v167：内容指纹闸 —— 内容没变就不下发
+        val fpKey = "next_$appWidgetId"
+        val sameDayForFp = next?.let { n ->
+            val nc = java.util.Calendar.getInstance()
+            val sc = java.util.Calendar.getInstance().apply { timeInMillis = n.startMillis }
+            nc.get(java.util.Calendar.YEAR) == sc.get(java.util.Calendar.YEAR) &&
+                    nc.get(java.util.Calendar.DAY_OF_YEAR) == sc.get(java.util.Calendar.DAY_OF_YEAR)
+        } ?: false
+        val minsForFp = next?.minutesUntilStart ?: -1
+        val countdownBucket = if (minsForFp in 0..120) minsForFp / 10 else -1
+        val hash = WidgetFingerprint.hashOf(
+                context, next?.courseName, next?.room, next?.startText, next?.endText,
+                next?.color, primary, sameDayForFp, countdownBucket)
+        if (!force && WidgetFingerprint.isUnchanged(context, fpKey, hash)) {
+            return
+        }
+        WidgetFingerprint.remember(context, fpKey, hash)
 
         appWidgetManager.updateAppWidget(appWidgetId, rv)
     }
