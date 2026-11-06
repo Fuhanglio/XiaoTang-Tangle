@@ -1,11 +1,14 @@
 package com.Tangle.timetable.update
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +29,12 @@ object UpdateDialog {
 
     /** 当前正在展示的弹窗：连点/重复触发时先关旧的，保证单实例 */
     private var currentDialog: AlertDialog? = null
+    /** 当前弹窗挂靠的宿主 Activity：旋转重建时据此判断是否需要先关窗 */
+    private var hostActivity: AppCompatActivity? = null
+    /** 最近一次展示的内容：宿主重建后据此恢复，保证旋转后屏幕上仍只有一个弹窗 */
+    private var lastInfo: UpdateInfo? = null
+    private var lastSkipped = false
+    private var pendingReShow = false
 
     /**
      * 展示「发现新版本」弹窗（立即更新 / 稍后 / 跳过此版本）。
@@ -52,12 +61,16 @@ object UpdateDialog {
             .ifBlank { "修复若干已知问题，提升稳定性。" }
         tvNotes.text = note
 
-        view.findViewById<TextView>(R.id.tv_full_notes).setOnClickListener {
+        val tvFullNotes = view.findViewById<TextView>(R.id.tv_full_notes)
+        tvFullNotes.setOnClickListener {
             openReleasesPage(activity)
         }
 
         val title = if (alreadySkipped) "新版本 ${info.shownName}（此前已跳过）"
         else "新版本 ${info.shownName}"
+        lastInfo = info
+        lastSkipped = alreadySkipped
+        pendingReShow = false
 
         val dialog = MaterialAlertDialogBuilder(activity)
             .setTitle(title)
@@ -77,6 +90,7 @@ object UpdateDialog {
 
         dialog.show()
         currentDialog = dialog
+        hostActivity = activity
         dialog.setOnDismissListener {
             if (currentDialog === dialog) currentDialog = null
         }
@@ -90,16 +104,43 @@ object UpdateDialog {
 
         // 限高 55% 屏高：post 到一次测量之后再做，避免拿到未测量的 0
         val maxContentHeight = (activity.resources.displayMetrics.heightPixels * MAX_CONTENT_HEIGHT_RATIO).toInt()
+        val root = view as LinearLayout
         svNotes.post {
             if (!dialog.isShowing) return@post
+            // 55% 屏高是整个自定义视图（含根内边距与「查看完整更新日志」）的总预算。
+            // 不扣掉链接与内边距的话，滚动区会吃掉全部预算，底部链接被挤成 0 高直接消失。
+            val linkLp = tvFullNotes.layoutParams as ViewGroup.MarginLayoutParams
+            // 用 minHeight 而不是当前 height：首次布局时链接可能已被挤压，拿实测值会一路越算越小
+            val linkHeight = maxOf(tvFullNotes.height, tvFullNotes.minHeight)
+            val reserved = root.paddingTop + root.paddingBottom +
+                    linkHeight + linkLp.topMargin + linkLp.bottomMargin
             val contentHeight = tvNotes.measuredHeight + svNotes.paddingTop + svNotes.paddingBottom
-            val target = minOf(contentHeight, maxContentHeight)
+            val target = minOf(contentHeight, (maxContentHeight - reserved).coerceAtLeast(0))
             if (target > 0 && svNotes.height != target) {
                 val lp = svNotes.layoutParams
                 lp.height = target
                 svNotes.layoutParams = lp
             }
         }
+    }
+
+    /** 宿主 Activity 被销毁（旋转重建等）：关掉挂在旧窗口上的弹窗，避免 WindowLeaked，并标记待重显 */
+    fun onHostDestroyed(activity: Activity) {
+        val dialog = currentDialog ?: return
+        if (hostActivity !== activity) return
+        pendingReShow = lastInfo != null
+        runCatching { if (dialog.isShowing) dialog.dismiss() }
+        currentDialog = null
+        hostActivity = null
+    }
+
+    /** 新宿主已 resume：若刚因重建关过弹窗，在新窗口上恢复同一个，屏幕上始终只有 1 个 */
+    fun onHostResumed(activity: AppCompatActivity) {
+        if (!pendingReShow) return
+        val info = lastInfo ?: return
+        pendingReShow = false
+        if (activity.isFinishing || activity.isDestroyed) return
+        showUpdate(activity, info, lastSkipped)
     }
 
     private fun startUpdate(activity: AppCompatActivity, info: UpdateInfo) {

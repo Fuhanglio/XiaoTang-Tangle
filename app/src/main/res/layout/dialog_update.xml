@@ -3,14 +3,16 @@
   更新弹窗正文容器（I）：
   · NestedScrollView 负责滚动，正文永远不顶满全屏；
   · TextView 14sp + lineSpacingExtra 4dp，行高足够，末行不再被按钮栏裁掉；
+  · 左右留 12dp：MaterialAlertDialog 自身还有 24dp 窗口内缩，12dp 才能让 14sp 正文
+    在 360dp 宽机型上一行排下 18 个汉字（实测 259dp / 14dp ≈ 18.5 字）；
   · 根布局留 12dp 底部内边距，保证末行与按钮栏之间至少 8dp 留白。
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="20dp"
-    android:paddingEnd="20dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
     android:paddingTop="4dp"
     android:paddingBottom="12dp">
 

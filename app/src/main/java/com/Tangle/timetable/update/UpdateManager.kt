@@ -47,12 +47,18 @@ object UpdateManager {
                     // 弹完即清：避免旋转/重进时把同一个更新再弹一遍
                     pendingUpdate = null
                 }
+                // 旋转重建后在新窗口上恢复「发现新版本」弹窗，保证屏幕上始终只有一个
+                if (activity is AppCompatActivity) UpdateDialog.onHostResumed(activity)
             }
             override fun onActivityPaused(activity: Activity) {
                 if (activity === currentActivity) currentActivity = null
             }
             override fun onActivityStarted(a: Activity) {}
-            override fun onActivityDestroyed(a: Activity) {}
+            override fun onActivityDestroyed(a: Activity) {
+                if (a === currentActivity) currentActivity = null
+                // 旋转/销毁时关掉仍挂在旧窗口上的弹窗，避免 WindowLeaked，并标记待重显
+                UpdateDialog.onHostDestroyed(a)
+            }
             override fun onActivitySaveInstanceState(a: Activity, b: android.os.Bundle) {}
             override fun onActivityStopped(a: Activity) {}
             override fun onActivityCreated(a: Activity, b: android.os.Bundle?) {}
