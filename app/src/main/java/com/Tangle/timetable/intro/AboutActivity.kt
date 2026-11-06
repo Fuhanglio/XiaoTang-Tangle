@@ -18,11 +18,10 @@ class AboutActivity : BaseBlurTitleActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        try {
-            tv_version.text = "版本号：${AppInfoUtils.getVersionName(this)}"
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        val name = AppInfoUtils.getVersionName(this)
+        val code = AppInfoUtils.getVersionCode(this)
+        // 双口径：名称（3.699）与 versionCode（168）同时展示，避免与 release tag 再次分叉
+        tv_version.text = "版本号：$name（$code）"
 
         findViewById<androidx.appcompat.widget.AppCompatTextView>(R.id.tv_check_update)
             ?.setOnClickListener { UpdateManager.checkManual(this) }

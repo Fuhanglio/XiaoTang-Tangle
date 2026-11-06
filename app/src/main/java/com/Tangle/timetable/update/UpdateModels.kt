@@ -31,5 +31,13 @@ data class UpdateInfo(
     val versionName: String,
     val apkUrl: String,
     val notes: String,
-    val sha256: String = ""
-)
+    val sha256: String = "",
+    /**
+     * 展示专用版本名（如 3.699）：取自 release 标题 / 正文前 5 行，取不到才回落 tag。
+     * **仅用于 UI**，绝不参与版本比较（比较只认 [versionCode] / [versionName]）。
+     */
+    val displayName: String = ""
+) {
+    /** 弹窗标题用：没有展示名时退回 tag 派生的 [versionName] */
+    val shownName: String get() = displayName.ifBlank { versionName }
+}

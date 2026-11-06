@@ -5,14 +5,17 @@ import android.app.Application
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.appcompat.app.AppCompatActivity
 import com.Tangle.timetable.SplashActivity
+import com.Tangle.timetable.utils.AppInfoUtils
 import com.Tangle.timetable.utils.Const
 import com.Tangle.timetable.utils.getPrefer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 object UpdateManager {
 
@@ -21,6 +24,13 @@ object UpdateManager {
     private var pendingUpdate: UpdateInfo? = null
     private var dialogShown = false
     private var currentActivity: AppCompatActivity? = null
+
+    /** 手动检查去抖窗口：连点 10 次也只真正发起 1 次网络请求 */
+    private const val MANUAL_CHECK_DEBOUNCE_MS = 800L
+
+    /** 同一时刻只允许一个检查在飞：防止防抖窗口之外的并发点击 */
+    private val checkInFlight = AtomicBoolean(false)
+    private var lastManualCheckAt = 0L
 
     /** 自动检查的最小间隔（6 小时）：省流量并规避 GitHub API 的匿名限流 */
     private const val UPDATE_AUTO_CHECK_INTERVAL_MS = 6 * 3600 * 1000L
@@ -31,9 +41,11 @@ object UpdateManager {
             override fun onActivityResumed(activity: Activity) {
                 if (activity is AppCompatActivity) currentActivity = activity
                 if (!dialogShown && pendingUpdate != null && activity is AppCompatActivity
-                    && activity !is SplashActivity && !activity.isFinishing) {
+                    && activity !is SplashActivity && !activity.isFinishing && !activity.isDestroyed) {
                     dialogShown = true
                     UpdateDialog.showUpdate(activity, pendingUpdate!!)
+                    // 弹完即清：避免旋转/重进时把同一个更新再弹一遍
+                    pendingUpdate = null
                 }
             }
             override fun onActivityPaused(activity: Activity) {
@@ -63,11 +75,43 @@ object UpdateManager {
                 prefs.edit().putLong(Const.KEY_UPDATE_LAST_AUTO_CHECK, System.currentTimeMillis()).apply()
             }
         }
+        // M：跳过记录自愈。KEY_UPDATE_SKIP_VERSION 存的是当时 release 的 versionName（现为 v168 形态），
+        // 一旦本地版本追平/超过它，判定"跳过"已经失效，必须清掉，否则新版本永远不会提示。
+        scope.launch { healSkipRecord(app) }
     }
 
-    /** 关于页「检查更新」手动入口 */
+    /** 关于页「检查更新」手动入口（L：800ms 防抖 + 单飞互斥，连点不叠窗、不重复打 API） */
     fun checkManual(context: Context) {
-        scope.launch { runCheck(context, manual = true) }
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastManualCheckAt < MANUAL_CHECK_DEBOUNCE_MS) return
+        lastManualCheckAt = now
+        if (!checkInFlight.compareAndSet(false, true)) return
+        scope.launch {
+            try {
+                runCheck(context, manual = true)
+            } finally {
+                checkInFlight.set(false)
+            }
+        }
+    }
+
+    /**
+     * 跳过记录里存的若是"versionCode 形态"（v168 / 168），且 ≤ 本地 versionCode，
+     * 说明本地已经追上，历史跳过作废，直接移除。
+     */
+    private fun healSkipRecord(app: Application) {
+        try {
+            val prefs = app.getPrefer()
+            val skipped = prefs.getString(Const.KEY_UPDATE_SKIP_VERSION, "").orEmpty().trim()
+            if (skipped.isEmpty()) return
+            val skippedCode = skipped.trimStart('v', 'V').toIntOrNull() ?: return
+            val localCode = AppInfoUtils.getVersionCode(app).toInt()
+            if (localCode > 0 && skippedCode <= localCode) {
+                prefs.edit().remove(Const.KEY_UPDATE_SKIP_VERSION).apply()
+            }
+        } catch (_: Throwable) {
+            // 自愈只是兜底清理，失败不能影响启动
+        }
     }
 
     /**
@@ -89,12 +133,16 @@ object UpdateManager {
                     if (manual) {
                         // 手动检查：照常弹窗（标题与中性按钮换成"已跳过"口径），
                         // 不再把"我主动跳过了"伪装成"已是最新版本"。
-                        UpdateDialog.showUpdate(context, state.info, alreadySkipped = isSkipped)
+                        // L：只接受仍在栈上的 Activity，isFinishing/isDestroyed 双判，避免 WindowLeaked。
+                        val activity = context as? AppCompatActivity
+                        if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                            UpdateDialog.showUpdate(activity, state.info, alreadySkipped = isSkipped)
+                        }
                     } else if (isSkipped) {
                         // 自动检查：用户明确跳过过的版本不再主动打扰（静默）
                     } else {
                         val cur = currentActivity
-                        if (cur != null && cur !is SplashActivity && !cur.isFinishing) {
+                        if (cur != null && cur !is SplashActivity && !cur.isFinishing && !cur.isDestroyed) {
                             dialogShown = true
                             UpdateDialog.showUpdate(cur, state.info)
                         } else {

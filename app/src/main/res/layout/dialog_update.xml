@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  更新弹窗正文容器（I）：
+  · NestedScrollView 负责滚动，正文永远不顶满全屏；
+  · TextView 14sp + lineSpacingExtra 4dp，行高足够，末行不再被按钮栏裁掉；
+  · 根布局留 12dp 底部内边距，保证末行与按钮栏之间至少 8dp 留白。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="12dp">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/sv_update_notes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:fadeScrollbars="false"
+        android:scrollbars="vertical">
+
+        <TextView
+            android:id="@+id/tv_update_notes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="4dp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textIsSelectable="false"
+            android:textSize="14sp" />
+    </androidx.core.widget.NestedScrollView>
+
+    <TextView
+        android:id="@+id/tv_full_notes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center_vertical"
+        android:minHeight="44dp"
+        android:text="查看完整更新日志"
+        android:textColor="?attr/colorAccent"
+        android:textSize="13sp" />
+
+</LinearLayout>

@@ -20,6 +20,9 @@ object UpdateClient {
     private const val REPO = "Fuhanglio/XiaoTang-Tangle"
     private const val API_PATH = "https://api.github.com/repos/$REPO/releases/latest"
 
+    /** 弹窗里「完整日志」入口：直接打开仓库的 releases/latest 页 */
+    const val RELEASES_PAGE_URL = "https://github.com/$REPO/releases/latest"
+
     /**
      * W6-05：API 查询与文件下载是**两类不同的流量**，不能共用同一套镜像前缀。
      *
@@ -107,11 +110,29 @@ object UpdateClient {
         if (!isTrustedDownloadUrl(apkUrl)) return null
         val proxiedUrl = if (mirror.isBlank()) apkUrl else (mirror + apkUrl)
         val notes = obj.optString("body", "").trim()
+        // 展示名只从 release 标题 / 正文前 5 行取 `数字.数字`，取不到回落 tag；
+        // 它只服务于 UI，不参与 UpdateChecker 的任何比较逻辑。
+        val displayName = pickDisplayName(obj.optString("name", ""), notes, tag)
         // 只认 sha256 且必须是 64 位十六进制，其它算法/异常格式一律视为不可校验
         val sha256 = if (digest.startsWith("sha256:", true)) {
             digest.substring(7).trim().lowercase().takeIf { it.matches(Regex("^[0-9a-f]{64}$")) }.orEmpty()
         } else ""
-        return UpdateInfo(versionCode, versionName, proxiedUrl, notes, sha256)
+        return UpdateInfo(versionCode, versionName, proxiedUrl, notes, sha256, displayName)
+    }
+
+    /** 展示名匹配：`数字.数字`（允许第三段），例如 3.699 */
+    private val DISPLAY_VERSION_REGEX = Regex("""\d+\.\d+(?:\.\d+)?""")
+
+    /**
+     * 从 release 标题 / 正文前 5 行里挑一个人类可读的版本名（如 3.699）。
+     * 找不到时回落 tag —— 只影响标题展示，**不参与版本比较**。
+     */
+    private fun pickDisplayName(releaseName: String, body: String, tag: String): String {
+        DISPLAY_VERSION_REGEX.find(releaseName)?.let { return it.value }
+        body.lineSequence().take(5).forEach { line ->
+            DISPLAY_VERSION_REGEX.find(line)?.let { return it.value }
+        }
+        return tag.trim()
     }
 
     /**
@@ -137,9 +158,9 @@ object UpdateClient {
         return TRUSTED_DOWNLOAD_SUFFIXES.any { host == it || host.endsWith(".$it") }
     }
 
-    /** 仅当 tag 整体为纯数字（如 v162）时才作为 versionCode，避免 v3.693 被误解析成 3693 */
-    private fun parseVersionCode(tag: String): Int {
-        val digits = tag.removePrefix("v").removePrefix("V")
-        return if (digits.matches(Regex("^\\d+$"))) digits.toIntOrNull() ?: 0 else 0
-    }
+    /**
+     * tag 形如 `v168` → 168；`v3.699` 含小数点 → 0（不猜映射，交给版本名语义比较）。
+     */
+    private fun parseVersionCode(tag: String): Int =
+        tag.trim().trimStart('v', 'V').toIntOrNull() ?: 0
 }

@@ -56,15 +56,25 @@ object UpdateChecker {
         return semanticGreater(remoteName, localName)
     }
 
-    /** 版本名语义比较：3.9 < 3.10；完全相等返回 false */
+    /**
+     * 版本名语义比较：3.9 < 3.10；完全相等返回 false。
+     *
+     * 任一版本名含非数字段（如 "3.698-beta" / "unknown"）时**整体退化为字符串比较** ——
+     * 原实现用 mapNotNull 丢掉非数字段，"3.698-beta" 被截成 [3,698]，会误判成比 3.698 旧；
+     * 现在宁可比不准也不误判"没有更新"。
+     */
     private fun semanticGreater(a: String, b: String): Boolean {
-        val pa = a.removePrefix("v").removePrefix("V").split(".").mapNotNull { it.toIntOrNull() }
-        val pb = b.removePrefix("v").removePrefix("V").split(".").mapNotNull { it.toIntOrNull() }
-        if (pa.isEmpty() || pb.isEmpty()) return false
+        val na = a.removePrefix("v").removePrefix("V").trim()
+        val nb = b.removePrefix("v").removePrefix("V").trim()
+        val pa = na.split(".")
+        val pb = nb.split(".")
+        val aNumeric = pa.all { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }
+        val bNumeric = pb.all { it.isNotEmpty() && it.all { c -> c in '0'..'9' } }
+        if (!aNumeric || !bNumeric) return na > nb
         val n = kotlin.math.max(pa.size, pb.size)
         for (i in 0 until n) {
-            val x = pa.getOrElse(i) { 0 }
-            val y = pb.getOrElse(i) { 0 }
+            val x = pa.getOrElse(i) { "0" }.toIntOrNull() ?: 0
+            val y = pb.getOrElse(i) { "0" }.toIntOrNull() ?: 0
             if (x != y) return x > y
         }
         return false

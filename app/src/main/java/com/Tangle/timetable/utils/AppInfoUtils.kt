@@ -12,18 +12,29 @@ import android.os.Build
  */
 object AppInfoUtils {
 
-    @Throws(Exception::class)
-    fun getVersionName(context: Context): String {
-        return context.packageManager.getPackageInfo(context.packageName, 0).versionName
-    }
+    /**
+     * 本机版本名。
+     *
+     * API 28+ 的 `PackageInfo.versionName` 允许为 null；原实现直接把它当非空 String 返回，
+     * 调用方拼字符串时会得到 "null" 或抛异常（取决于调用点推断的可空性）。
+     * 现在读不到 / 为空一律兜底 "unknown"，任何调用点都不再需要自己 try/catch。
+     */
+    fun getVersionName(context: Context): String =
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: "unknown"
 
-    @Throws(Exception::class)
-    fun getVersionCode(context: Context): Long {
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo.longVersionCode
-        } else {
-            @Suppress("DEPRECATION") packageInfo.versionCode.toLong()
-        }
-    }
+    /**
+     * 本机 versionCode。读取失败兜底 0，语义是"未知"，调用方需自行判 0。
+     * 保持 Long 返回类型：PendingUpdateStore / WidgetFingerprint 等既有调用点按 Long 使用。
+     */
+    fun getVersionCode(context: Context): Long =
+        runCatching {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION") packageInfo.versionCode.toLong()
+            }
+        }.getOrDefault(0L)
 }

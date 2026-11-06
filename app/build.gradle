@@ -89,8 +89,10 @@ android {
         minSdkVersion 21
         targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
-        versionCode 167
-        versionName "3.698"
+        // 唯一事实源：三个 flavor 一律不覆盖这两个字段（下方 checkVersionConsistency 会强校验）。
+        // Release tag 必须用 versionCode 形态（v168），写成 v3.699 会让 tag 带小数点。
+        versionCode 168
+        versionName "3.699"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         ndk {
@@ -181,6 +183,37 @@ android {
         jvmTarget = "1.8"
     }
 }
+
+/**
+ * 版本口径自检（G）：versionCode / versionName 只能有一处定义。
+ *
+ * 背景：关于页、更新弹窗、GitHub tag 曾出现 3.698 / v167 / v167 三套编号。
+ * 根因之一是「唯一事实源」没有被守住 —— 任何 flavor 都能各自覆盖这两个字段，
+ * 于是 aapt badging 出来的值与预期分叉却无人发现。
+ * 这里在 preBuild 前强校验：格式合法 + 三个 flavor 均未覆盖。
+ */
+tasks.register('checkVersionConsistency') {
+    group = 'verification'
+    description = '校验 versionCode/versionName 的唯一事实源与格式'
+    doLast {
+        def cfg = android.defaultConfig
+        def code = cfg.versionCode
+        def name = cfg.versionName
+        if (code == null || code <= 0) {
+            throw new GradleException("versionCode 非法：${code}（必须在 defaultConfig 中为正整数）")
+        }
+        if (name == null || !(name ==~ /\d+\.\d+(\.\d+)?/)) {
+            throw new GradleException("versionName 非法：${name}（应为 x.y 或 x.y.z）")
+        }
+        android.productFlavors.each { f ->
+            if (f.versionCode != null || f.versionName != null) {
+                throw new GradleException("flavor '${f.name}' 覆盖了 versionCode/versionName，会与 defaultConfig 分叉")
+            }
+        }
+        logger.lifecycle("checkVersionConsistency OK: versionCode=${code} versionName=${name}")
+    }
+}
+tasks.named('preBuild') { dependsOn 'checkVersionConsistency' }
 
 dependencies {
     // W4-11：原为 "2.2.0"（2020 年）。工程实际早已在用 2.4+ 才有的
