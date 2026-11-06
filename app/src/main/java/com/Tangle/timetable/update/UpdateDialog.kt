@@ -1,9 +1,12 @@
 package com.Tangle.timetable.update
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -12,6 +15,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.widget.NestedScrollView
 import com.Tangle.timetable.R
 import com.Tangle.timetable.utils.Const
@@ -35,6 +40,9 @@ object UpdateDialog {
     private var lastInfo: UpdateInfo? = null
     private var lastSkipped = false
     private var pendingReShow = false
+
+    /** C：POST_NOTIFICATIONS 的请求码（不依赖返回结果，拒绝也继续下载） */
+    private const val REQUEST_NOTIFICATIONS = 3001
 
     /**
      * 展示「发现新版本」弹窗（立即更新 / 稍后 / 跳过此版本）。
@@ -150,13 +158,18 @@ object UpdateDialog {
             UpdateDownloadService.start(
                 activity, info.apkUrl, info.versionName, info.versionCode.toLong(), info.sha256
             )
+            // C/D：点「立即更新」后立刻给出可交互的进度界面。
+            // 历史缺陷：下载全程只靠通知栏反馈，而 App 从未申请 POST_NOTIFICATIONS，
+            // Android 13+ 默认关闭 → startForeground 照常执行但通知不显示，用户只看到"点了没反应"。
+            DownloadProgressDialog.show(activity, info)
+            // 申请通知权限（拒绝也继续下载：弹窗本身已经能看到进度，通知只是后台补充）
+            ensureNotificationPermission(activity)
         } else {
             MaterialAlertDialogBuilder(activity)
-                .setTitle("需要先允许安装应用")
-                .setMessage("系统默认不允许本应用安装其他应用。请先在设置里为「小唐Tangle」打开「安装未知应用」，" +
-                        "再回来重新点「立即更新」即可（已下载的包不用重复下）。")
-                .setNegativeButton("取消", null)
-                .setPositiveButton("去开启") { _, _ ->
+                .setTitle(R.string.update_dl_need_install_title)
+                .setMessage(R.string.update_dl_need_install_msg)
+                .setNegativeButton(R.string.update_dl_need_install_cancel, null)
+                .setPositiveButton(R.string.update_dl_need_install_go) { _, _ ->
                     try {
                         activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                             Uri.parse("package:${activity.packageName}"))
@@ -165,6 +178,24 @@ object UpdateDialog {
                     }
                 }
                 .show()
+        }
+    }
+
+    /** C：Android 13+ 的 POST_NOTIFICATIONS。只在这里申请一次，拒绝也不阻断下载 */
+    private fun ensureNotificationPermission(activity: AppCompatActivity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (granted) return
+        val requested = runCatching {
+            ActivityCompat.requestPermissions(
+                activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS
+            )
+            true
+        }.getOrDefault(false)
+        // 系统弹窗关掉后刷新顶部黄条（授权成功则应消失）
+        if (requested) {
+            activity.window?.decorView?.postDelayed({ DownloadProgressDialog.refreshBanner() }, 1200L)
         }
     }
 

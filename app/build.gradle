@@ -90,9 +90,9 @@ android {
         targetSdkVersion 34
         // 规则：此后每次修改应用，versionCode +1，versionName 最后一位 +1。
         // 唯一事实源：三个 flavor 一律不覆盖这两个字段（下方 checkVersionConsistency 会强校验）。
-        // Release tag 必须用 versionCode 形态（v168），写成 v3.699 会让 tag 带小数点。
-        versionCode 168
-        versionName "3.699"
+        // Release tag 必须用 versionCode 形态（v169），写成 v3.700 会让 tag 带小数点。
+        versionCode 169
+        versionName "3.700"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         ndk {
